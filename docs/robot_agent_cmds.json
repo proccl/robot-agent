@@ -1,0 +1,76 @@
+{
+  "description": "RobotAgent TCP 指令協議 (JSON over TCP)",
+  "transport": {
+    "protocol": "TCP",
+    "address": "127.0.0.1",
+    "default_port": 12345,
+    "message_format": "JSON string + LF terminator",
+    "response_format": "JSON string + LF terminator"
+  },
+  "commands": {
+    "home": {
+      "description": "回到初始零位",
+      "parameters": {
+        "duration": { "type": "number", "default": 2, "unit": "seconds", "description": "動畫時長" }
+      },
+      "example": { "cmd": "home", "duration": 2 }
+    },
+    "move_to": {
+      "description": "笛卡爾空間點到點移動",
+      "parameters": {
+        "position": { "type": "array[3]", "required": true, "unit": "mm", "description": "目標位置 [x, y, z]" },
+        "duration": { "type": "number", "default": 3, "unit": "seconds", "description": "動畫時長" }
+      },
+      "example": { "cmd": "move_to", "position": [500, 0, 800], "duration": 3 }
+    },
+    "trajectory": {
+      "description": "執行預定義軌跡",
+      "parameters": {
+        "type": { "type": "string", "required": true, "enum": ["circle", "line"], "description": "軌跡類型" },
+        "radius": { "type": "number", "default": 200, "unit": "mm", "description": "圓軌跡半徑（僅 circle）" },
+        "center": { "type": "array[3]", "default": "當前末端位置", "unit": "mm", "description": "圓心位置（僅 circle）" },
+        "target": { "type": "array[3]", "description": "直線終點（僅 line）" },
+        "duration": { "type": "number", "default": 5, "unit": "seconds", "description": "動畫時長" }
+      },
+      "examples": [
+        { "cmd": "trajectory", "type": "circle", "radius": 200, "center": [500, 0, 600], "duration": 5 },
+        { "cmd": "trajectory", "type": "line", "target": [600, 100, 700], "duration": 4 }
+      ]
+    },
+    "set_speed": {
+      "description": "設置動畫播放倍速",
+      "parameters": {
+        "factor": { "type": "number", "required": true, "min": 0.1, "max": 5.0, "description": "倍速因子" }
+      },
+      "example": { "cmd": "set_speed", "factor": 2.0 }
+    },
+    "get_status": {
+      "description": "查詢當前狀態",
+      "parameters": {},
+      "example": { "cmd": "get_status" },
+      "response_fields": {
+        "joint_angles_rad": "當前關節角 (1x7 array)",
+        "end_effector_position": "末端位置 [x, y, z] (mm)",
+        "end_effector_rotation": "末端旋轉矩陣 (3x3)",
+        "anim_speed": "當前倍速",
+        "is_busy": "是否忙碌"
+      }
+    },
+    "plot": {
+      "description": "強制刷新圖形",
+      "parameters": {},
+      "example": { "cmd": "plot" }
+    }
+  },
+  "response_format": {
+    "status": { "type": "string", "enum": ["ok", "error"] },
+    "message": { "type": "string", "description": "人類可讀的描述" }
+  },
+  "error_handling": {
+    "invalid_json": "status=error, message=JSON parse error",
+    "missing_cmd": "status=error, message=Invalid command: missing 'cmd' field",
+    "unknown_cmd": "status=error, message=Unknown command: xxx",
+    "unreachable": "status=error, message=xxx trajectory: unreachable target",
+    "busy": "Server logs 'Already computing/animating, ignoring new command' but does not send TCP error"
+  }
+}

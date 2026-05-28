@@ -1,0 +1,15 @@
+# Temporary MATLAB scripts
+temp_*.m
+send_cmd.m
+
+# Python temp files
+send_via_tcp.py
+__pycache__/
+*.pyc
+
+# Test output PNG files
+tests/output/*.png
+
+# MATLAB autosave files
+*.asv
+*.m~
