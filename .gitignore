@@ -7,6 +7,11 @@ send_via_tcp.py
 __pycache__/
 *.pyc
 
+# Runtime directories
+incoming/
+incoming_test_relative/
+tests/output/
+
 # Test output PNG files
 tests/output/*.png
 

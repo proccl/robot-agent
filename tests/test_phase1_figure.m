@@ -1,84 +1,90 @@
-function test_phase1_figure()
-    % test_phase1_figure Phase 1 測試：Figure 初始化與句柄
-    %   測試內容：
-    %     P1-T1: 默認姿態 Figure 初始化（視覺測試）
-    %     P1-T2: 不同關節角渲染（視覺測試）
-    %     P1-T3: 句柄有效性檢查
-    %     P1-T4: Figure 關閉後重建（視覺測試）
-    
-    % 添加 src 到 path
-    script_path = mfilename('fullpath');
-    if isempty(script_path)
-        script_path = pwd;
-    end
-    src_dir = fullfile(fileparts(script_path), '..', 'src');
-    addpath(src_dir);
-    
-    output_dir = fullfile(fileparts(script_path), 'output');
-    if ~exist(output_dir, 'dir')
-        mkdir(output_dir);
-    end
-    
-    fprintf('========================================\n');
-    fprintf('  Phase 1 Tests: Figure Initialization\n');
-    fprintf('========================================\n\n');
-    
-    %% P1-T1: 默認姿態 Figure 初始化
-    fprintf('[P1-T1] Default pose initialization... ');
-    agent = RobotAgent();
-    pause(0.5); % 讓 Figure 完全渲染
-    png_path = fullfile(output_dir, 'test_phase1_t1_default.png');
-    print(agent.fig, '-dpng', png_path);
-    fprintf('OK\n');
-    fprintf('        PNG saved: %s\n', png_path);
-    
-    %% P1-T2: 不同關節角渲染
-    fprintf('[P1-T2] Different joint angles (pi/4, pi/4, 0, 0, 0, -pi/4, 0)... ');
-    agent.current_q = [pi/4, pi/4, 0, 0, 0, -pi/4, 0];
-    points = agent.arm.getJointPositions(agent.current_q);
-    set(agent.h_link, 'XData', points(:,1), 'YData', points(:,2), 'ZData', points(:,3));
-    set(agent.h_joints, 'XData', points(:,1), 'YData', points(:,2), 'ZData', points(:,3));
-    for i = 1:length(agent.h_labels)
-        if isvalid(agent.h_labels(i))
-            set(agent.h_labels(i), 'Position', points(i,:));
-        end
-    end
-    drawnow;
-    pause(0.5);
-    png_path = fullfile(output_dir, 'test_phase1_t2_pose.png');
-    print(agent.fig, '-dpng', png_path);
-    fprintf('OK\n');
-    fprintf('        PNG saved: %s\n', png_path);
-    
-    %% P1-T3: 句柄有效性檢查
-    fprintf('[P1-T3] Handle validity check... ');
-    assert(isvalid(agent.h_link), 'h_link is invalid');
-    assert(isvalid(agent.h_joints), 'h_joints is invalid');
-    for i = 1:length(agent.h_labels)
-        assert(isvalid(agent.h_labels(i)), 'h_labels(%d) is invalid', i);
-    end
-    for j = 1:3
-        assert(isvalid(agent.h_axes_base(j)), 'h_axes_base(%d) is invalid', j);
-        assert(isvalid(agent.h_axes_ee(j)), 'h_axes_ee(%d) is invalid', j);
-    end
-    fprintf('OK (all handles valid)\n');
-    
-    %% P1-T4: Figure 關閉後重建
-    fprintf('[P1-T4] Rebuild after figure close... ');
-    close(agent.fig);
-    pause(0.3);
-    agent.current_q = zeros(1, 7); % 重置為零位，確保與 T1 一致
-    agent.initFigure();
-    pause(0.5);
-    png_path = fullfile(output_dir, 'test_phase1_t4_rebuild.png');
-    print(agent.fig, '-dpng', png_path);
-    fprintf('OK\n');
-    fprintf('        PNG saved: %s\n', png_path);
-    
-    fprintf('\n========================================\n');
-    fprintf('  All Phase 1 Tests PASSED (4/4)\n');
-    fprintf('========================================\n');
-    
-    % 保存 agent 到 base workspace 供後續檢查
-    assignin('base', 'phase1_agent', agent);
+%% test_phase1_figure.m — Phase 1: 可視化獨立函數測試
+%   驗證 initRobotFigure, updateRobotFigure, animateRobot
+
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'src'));
+output_dir = fullfile(fileparts(mfilename('fullpath')), 'output');
+if ~exist(output_dir, 'dir'), mkdir(output_dir); end
+
+fprintf('=== Phase 1: Figure Visualization Tests ===\n');
+
+%% P1-T1: initRobotFigure 初始化
+fprintf('[P1-T1] initRobotFigure initialization... ');
+arm = Arm7R();
+fig = initRobotFigure(arm, zeros(1,7));
+assert(isvalid(fig), 'P1-T1 FAILED: fig invalid');
+pause(0.5);
+print(fig, fullfile(output_dir, 'p1_t1_init.png'), '-dpng');
+fprintf('PASS\n');
+
+%% P1-T2: Figure UserData 完整性
+fprintf('[P1-T2] UserData completeness... ');
+ud = fig.UserData;
+assert(isfield(ud, 'arm'), 'P1-T2 FAILED: missing arm');
+assert(isfield(ud, 'current_q'), 'P1-T2 FAILED: missing current_q');
+assert(isfield(ud, 'ax'), 'P1-T2 FAILED: missing ax');
+assert(isfield(ud, 'h_link'), 'P1-T2 FAILED: missing h_link');
+assert(isfield(ud, 'h_joints'), 'P1-T2 FAILED: missing h_joints');
+assert(isfield(ud, 'h_labels'), 'P1-T2 FAILED: missing h_labels');
+assert(isfield(ud, 'h_axes_base'), 'P1-T2 FAILED: missing h_axes_base');
+assert(isfield(ud, 'h_axes_ee'), 'P1-T2 FAILED: missing h_axes_ee');
+assert(isequal(size(ud.current_q), [1 7]), 'P1-T2 FAILED: current_q size');
+fprintf('PASS\n');
+
+%% P1-T3: updateRobotFigure 更新
+fprintf('[P1-T3] updateRobotFigure with new pose... ');
+q_new = [pi/4, pi/4, 0, 0, 0, -pi/4, 0];
+updateRobotFigure(fig, q_new);
+pause(0.5);
+print(fig, fullfile(output_dir, 'p1_t3_update.png'), '-dpng');
+% 視覺檢查：與 p1_t1_init.png 對比，姿態應不同
+fprintf('PASS (visual check required)\n');
+
+%% P1-T4: 句柄有效性
+fprintf('[P1-T4] Handle validity... ');
+ud = fig.UserData;
+assert(isvalid(fig), 'P1-T4 FAILED: fig invalid');
+assert(isvalid(ud.ax), 'P1-T4 FAILED: ax invalid');
+assert(isvalid(ud.h_link), 'P1-T4 FAILED: h_link invalid');
+assert(isvalid(ud.h_joints), 'P1-T4 FAILED: h_joints invalid');
+for i = 1:length(ud.h_labels)
+    assert(isvalid(ud.h_labels(i)), 'P1-T4 FAILED: h_labels(%d) invalid', i);
 end
+for j = 1:3
+    assert(isvalid(ud.h_axes_base(j)), 'P1-T4 FAILED: h_axes_base(%d) invalid', j);
+    assert(isvalid(ud.h_axes_ee(j)), 'P1-T4 FAILED: h_axes_ee(%d) invalid', j);
+end
+fprintf('PASS\n');
+
+%% P1-T5: Figure 關閉後重建
+fprintf('[P1-T5] Rebuild after close... ');
+close(fig);
+pause(0.3);
+fig2 = initRobotFigure(arm, zeros(1,7));
+assert(isvalid(fig2), 'P1-T5 FAILED: rebuilt fig invalid');
+pause(0.5);
+print(fig2, fullfile(output_dir, 'p1_t5_rebuild.png'), '-dpng');
+close(fig2);
+fprintf('PASS\n');
+
+%% P1-T6: animateRobot 播放動畫
+fprintf('[P1-T6] animateRobot 30 frames... ');
+fig3 = initRobotFigure(arm, zeros(1,7));
+steps = 30;
+q_traj = zeros(steps, 7);
+q_target = [pi/4, pi/4, 0, 0, 0, -pi/4, 0];
+for j = 1:7
+    q_traj(:, j) = linspace(0, q_target(j), steps);
+end
+tic;
+animateRobot(fig3, q_traj, 30);
+elapsed = toc;
+assert(elapsed >= 0.8 && elapsed <= 3.0, 'P1-T6 FAILED: timing off (%.2fs)', elapsed);
+% 驗證末幀位姿
+T_ee = arm.forwardKinematics(fig3.UserData.current_q);
+T_target = arm.forwardKinematics(q_target);
+assert(norm(T_ee(1:3,4) - T_target(1:3,4)) < 1, 'P1-T6 FAILED: end pose mismatch');
+print(fig3, fullfile(output_dir, 'p1_t6_animate_end.png'), '-dpng');
+close(fig3);
+fprintf('PASS (elapsed=%.2fs)\n', elapsed);
+
+fprintf('\n=== Phase 1: ALL TESTS PASSED ===\n');

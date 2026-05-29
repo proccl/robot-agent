@@ -1,46 +1,61 @@
 # Robot-Agent
 
-MATLAB-based 7-DOF robot arm visualization and TCP remote control system.
+MATLAB-based 7-DOF robot arm visualization with natural language control via file-system queue.
 
 ## Architecture
 
 ```
-User (Kimi CLI)  --JSON/TCP-->  MATLAB RobotAgent Server  --Animation-->  Figure
+User (Kimi CLI)  --Natural Language-->  .m Code  --File Queue-->  MATLAB  --Animation-->  Figure
 ```
 
-- **RobotAgent.m**: TCP server + animation engine + trajectory planner
+- **robotagent.m**: One-click launcher (file watch + animation engine)
 - **Arm7R.m**: 7-DOF forward/inverse kinematics
-- Pure MATLAB, no Robotics Toolbox, no Python bridge
+- **quinticTrajectory.m**: Quintic polynomial joint-space trajectory planner
+- **generate_robot_cmd.m**: Code generator (cmd_struct → executable .m file)
+- **parseNaturalLanguage.m**: Natural language parser
+- Pure MATLAB, no Robotics Toolbox, no Python bridge, no TCP server
 
 ## Quick Start
 
-### MATLAB GUI Mode
+### Step 1: Launch (MATLAB GUI)
 
-```matlab
-cd('D:\Document\code\Matlab\robot-agent');
-run_robot_agent;  % starts server on port 12345
+In MATLAB, navigate to the `robot-agent` folder and **run** `robotagent.m` (double-click or press ▶):
+
+```
+========================================
+RobotAgent started.
+Figure: RobotAgent - 7R Arm
+Watching: D:\...\robot-agent\incoming
+========================================
 ```
 
-### MATLAB Batch Mode
+A Figure window pops up showing the 7R arm at zero pose. The MATLAB command line remains free.
 
-```powershell
-matlab -batch "cd('D:\Document\code\Matlab\robot-agent'); addpath('src'); addpath('scripts'); run_robot_agent;"
+### Step 2: Send Commands (Kimi CLI)
+
+Type natural language commands in Kimi CLI, e.g.:
+
+```
+Move end-effector to (500, 0, 800) in 3 seconds
 ```
 
-## TCP Commands
+Kimi CLI internally:
+1. Parses to `cmd_struct`
+2. Generates a `.m` script with `quinticTrajectory`
+3. Writes it to `robot-agent/incoming/cmd_xxx.m`
+4. MATLAB `timer` detects and executes automatically
 
-Send JSON strings (with LF terminator) to `127.0.0.1:12345`.
+## Supported Commands
 
-| Command | Example | Description |
-|---------|---------|-------------|
-| `home` | `{"cmd":"home","duration":2}` | Return to zero pose |
-| `move_to` | `{"cmd":"move_to","position":[500,0,800],"duration":3}` | Cartesian PTP move |
-| `trajectory` | `{"cmd":"trajectory","type":"circle","radius":200,"duration":5}` | Predefined trajectory |
-| `set_speed` | `{"cmd":"set_speed","factor":2.0}` | Animation speed factor |
-| `get_status` | `{"cmd":"get_status"}` | Query current joint angles & EE pose |
-| `plot` | `{"cmd":"plot"}` | Force refresh figure |
+| Natural Language | Generated Action |
+|-----------------|------------------|
+| `home` / `回到原位` | Return to zero pose (default 5s) |
+| `move to (500, 0, 800)` | Cartesian PTP move (Quintic, default 5s) |
+| `joint 1 90 deg` | Single-joint move (default 5s) |
+| `circle radius 200` | Circular trajectory (default 5s) |
+| `status` / `現在姿態` | Print current joint angles & EE pose |
 
-See [docs/robot_agent_cmds.json](docs/robot_agent_cmds.json) for full protocol specification.
+Append `in X seconds` / `用 X 秒` to override the default 5-second duration.
 
 ## Tests
 
@@ -48,44 +63,53 @@ See [docs/robot_agent_cmds.json](docs/robot_agent_cmds.json) for full protocol s
 cd('D:\Document\code\Matlab\robot-agent');
 addpath('src');
 addpath('tests');
+
 test_phase1_figure;
-test_phase2_tcp;
-test_phase3_render;
-test_phase4_compute;
-test_phase5_integration;
+test_phase2_filewatch;
+test_phase3_generator;
+test_phase4_nlp;
+test_phase5_cleanup;
+test_phase6_integration;
 ```
 
 Or run all at once:
 
 ```powershell
-matlab -batch "cd('D:\Document\code\Matlab\robot-agent'); addpath('src'); addpath('tests'); test_phase1_figure; test_phase2_tcp; test_phase3_render; test_phase4_compute; test_phase5_integration;"
+matlab -batch "cd('D:\Document\code\Matlab\robot-agent'); addpath('src'); addpath('tests'); test_phase1_figure; test_phase2_filewatch; test_phase3_generator; test_phase4_nlp; test_phase5_cleanup; test_phase6_integration;"
 ```
 
 ## Project Structure
 
 ```
 robot-agent/
+├── robotagent.m              # One-click launcher
 ├── src/
-│   ├── RobotAgent.m        # Main server class
-│   ├── Arm7R.m             # 7-DOF kinematics
-│   └── computeTrajectory.m # Trajectory helper
-├── scripts/
-│   └── run_robot_agent.m   # One-click launcher
+│   ├── Arm7R.m               # 7-DOF kinematics
+│   ├── initRobotFigure.m     # Figure initialization
+│   ├── updateRobotFigure.m   # Figure efficient update
+│   ├── animateRobot.m        # Animation playback
+│   ├── quinticTrajectory.m   # Quintic polynomial planner
+│   ├── generate_robot_cmd.m  # Code generator
+│   ├── parseNaturalLanguage.m # NLP parser
+│   └── processIncomingCommands.m # File watch executor
 ├── tests/
 │   ├── test_phase1_figure.m
-│   ├── test_phase2_tcp.m
-│   ├── test_phase3_render.m
-│   ├── test_phase4_compute.m
-│   ├── test_phase5_integration.m
-│   └── output/             # Test screenshots
+│   ├── test_phase2_filewatch.m
+│   ├── test_phase3_generator.m
+│   ├── test_phase4_nlp.m
+│   ├── test_phase5_cleanup.m
+│   ├── test_phase6_integration.m
+│   └── output/               # Test screenshots
 ├── docs/
 │   ├── README_Arm7R.md
+│   ├── plan_refactor_filewatch.md
 │   └── robot_agent_cmds.json
-└── README.md               # This file
+└── README.md                 # This file
 ```
 
 ## Compatibility
 
-- **MATLAB**: R2020b or later (`tcpserver` required). Tested on R2023b.
+- **MATLAB**: R2020b or later (`timer` required). Tested on R2023b.
 - **Toolbox**: None required. Pure base MATLAB.
-- **Batch mode limitation**: `parfeval` / `backgroundPool` cannot serialize user-defined functions in `-batch` mode. Trajectory computation falls back to synchronous execution; rendering uses an async `timer` loop.
+- **Quintic trajectory**: All joint motions use quintic polynomial interpolation (zero start/end velocity & acceleration).
+- **Default duration**: 5 seconds when not specified by user.
