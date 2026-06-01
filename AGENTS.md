@@ -14,6 +14,9 @@
 ```
 robot-agent/
 ├── robotagent.m                  % 一鍵啟動腳本（初始化 Figure + 啟動文件監聽 timer）
+├── skills/                       % 項目輔助 skill
+│   └── robotagent-ops/
+│       └── SKILL.md              % RobotAgent 操作指南（自然語言指令、姿態調整、問題排查）
 ├── src/                          % 源代碼
 │   ├── Arm7R.m                   % 7R 機械臂運動學類（FK / IK / 軌跡規劃 / 雅可比）
 │   ├── initRobotFigure.m         % Figure 初始化函數

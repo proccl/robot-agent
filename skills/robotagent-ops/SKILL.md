@@ -9,7 +9,7 @@ description: 操作 RobotAgent 文件監聽架構機械臂系統的指南。涵�
 
 RobotAgent 採用 **文件監聽架構**（非 TCP）：
 
-```
+```matlab
 用戶自然語言 → AI 生成 .m 腳本 → 投遞到 incoming/
                                      ↓
 MATLAB timer (0.5s) → 掃描 → run() 執行 → 刪除/歸檔 failed/
