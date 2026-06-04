@@ -11,6 +11,8 @@ arm = Arm7R();
 current_q = zeros(1, 7);
 fig = initRobotFigure(arm, current_q);
 % initRobotFigure 已存儲圖形句柄（ax, h_link 等），只需補充狀態字段
+fig.UserData.arm = arm;
+fig.UserData.current_q = current_q;
 fig.UserData.is_busy = false;
 
 % 創建指令監聽目錄

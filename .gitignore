@@ -11,10 +11,11 @@ __pycache__/
 incoming/
 incoming_test_relative/
 tests/output/
+logs/
 
 # Test output PNG files
 tests/output/*.png
 
 # MATLAB autosave files
 *.asv
-*.m~
+*.m~incoming_history/
