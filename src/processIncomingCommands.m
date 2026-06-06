@@ -31,10 +31,11 @@ function processIncomingCommands(incoming_dir, fig)
     fprintf('[RX] %s\n', cmd_name);
     fig.UserData.is_busy = true;
     
-    % 將關鍵變量注入 base workspace，確保 run() 能找到
-    assignin('base', 'arm', fig.UserData.arm);
-    assignin('base', 'fig', fig);
-    assignin('base', 'current_q', fig.UserData.current_q);
+    % 將關鍵變量注入函數工作空間，確保 run() 能找到
+    % 注意: run() 在函數內部調用時，腳本運行在函數工作空間，不是 base workspace
+    arm = fig.UserData.arm;
+    current_q = fig.UserData.current_q;
+    % fig 已經是函數參數，直接可用
     
     try
         run(cmd_path);

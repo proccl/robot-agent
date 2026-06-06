@@ -18,4 +18,5 @@ tests/output/*.png
 
 # MATLAB autosave files
 *.asv
-*.m~incoming_history/
+*.m~
+incoming_history/
