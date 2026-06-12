@@ -3,14 +3,21 @@
 
 ## 項目概述
 
-這是一個基於 MATLAB 的 7 自由度（7R）機械臂可視化與自然語言控制系統。項目採用**文件隊列橋接架構**，實現「自然語言 → 即時 .m 代碼 → 文件隊列 → MATLAB 自動執行 → 實時動畫」的完整閉環。
+這是一個基於 MATLAB 的 7 自由度（7R）機械臂可視化與即時指令執行系統。項目採用**文件隊列橋接架構**，實現「自然語言 → AI 生成 `.m` 腳本 → 文件隊列 → MATLAB 自動執行 → 實時動畫」的完整閉環。
 
-- **語言**: MATLAB（純基礎環境，無強制工具箱依賴）
-- **通信協議**: 文件系統隊列（`incoming/` 目錄）
-- **代碼與文檔語言**: 繁體中文
-- **MATLAB 版本要求**: R2020b 或更高版本（需內置 `timer`）
+- **語言**：MATLAB（純基礎環境，無強制工具箱依賴）
+- **通信協議**：文件系統隊列（`incoming/` 目錄）
+- **代碼與文檔語言**：繁體中文
+- **MATLAB 版本要求**：R2020b 或更高版本（需內置 `timer`）
 
-> **架構演進說明**: 本項目早期版本使用 TCP 服務器架構，現已完全重構為文件隊列架構。舊版 TCP 相關文件（`RobotAgent.m`、`run_robot_agent.m`、`send_robot_cmd.ps1`、`send_cmd.m` 等）均已移除。目錄中遺留的 `send_via_tcp.py` 僅供歷史參考，不再使用。
+> **架構演進說明**：本項目早期版本使用 TCP 服務器架構，現已完全重構為文件隊列架構。舊版 TCP 相關文件（`RobotAgent.m`、`run_robot_agent.m`、`send_robot_cmd.ps1`、`send_cmd.m`、`send_via_tcp.py` 等）均已移除。舊版的 `parseNaturalLanguage.m` 與 `generate_robot_cmd.m` 也已在 v0.0.4 重構中移除，現只保留 **AI 直接寫 `.m` 腳本**模式。
+
+## 關鍵配置文件
+
+本項目為純 MATLAB 腳本項目，**沒有** `pyproject.toml`、`package.json`、`Cargo.toml`、`Makefile` 或類似的編譯/包管理配置文件。唯一與構建相關的設置是：
+
+- `.gitignore`：排除運行時目錄與臨時文件（`incoming/`、`logs/`、`incoming_history/`、`tests/output/*.png`、`.asv`、`.m~` 等）。
+- `robotagent.m`：啟動腳本，內含 `addpath('src')` 與 `timer` 配置。
 
 ## 文件結構
 
@@ -31,19 +38,18 @@ robot-agent/
 │   ├── initRobotFigure.m         % Figure 初始化函數
 │   ├── updateRobotFigure.m       % Figure 高效更新函數
 │   ├── animateRobot.m            % 動畫播放函數
-│   ├── quinticTrajectory.m       % 五次多項式軌跡規劃
-│   ├── generate_robot_cmd.m      % 代碼生成器
-│   ├── parseNaturalLanguage.m    % 自然語言解析器（中英混合）
-│   ├── processIncomingCommands.m % 文件監聽執行器
+│   ├── quinticTrajectory.m       % 五次多項式關節空間軌跡規劃
+│   ├── processIncomingCommands.m % 文件監聽執行器（timer 回調）
 │   └── computeTrajectory.m       % 獨立軌跡計算函數（舊架構遺留，供參考）
 │
 ├── tests/                        % 測試腳本（分 Phase 組織）
-│   ├── test_phase1_figure.m      % Phase 1: Figure 初始化與句柄有效性
-│   ├── test_phase2_filewatch.m   % Phase 2: 文件監聽與指令執行
-│   ├── test_phase3_generator.m   % Phase 3: Quintic 軌跡與代碼生成器
-│   ├── test_phase4_nlp.m         % Phase 4: 自然語言解析
-│   ├── test_phase5_cleanup.m     % Phase 5: 舊架構清理驗證與文檔一致性
-│   ├── test_phase6_integration.m % Phase 6: 端到端集成測試
+│   ├── run_all_tests.m           % 統一測試入口（執行全部 6 個 Phase）
+│   ├── test_phase1_figure.m      % Phase 1: Figure 初始化、句柄有效性、動畫
+│   ├── test_phase2_filewatch.m   % Phase 2: 文件監聽、執行順序、錯誤歸檔、並發保護
+│   ├── test_phase3_generator.m   % Phase 3: Quintic 軌跡數學性質
+│   ├── test_phase4_cleanup.m     % Phase 4: 舊架構清理驗證與文檔一致性
+│   ├── test_phase5_e2e.m         % Phase 5: AI 直接寫代碼模式的端到端集成測試
+│   ├── test_phase6_complex.m     % Phase 6: 複合多段指令鏈路測試
 │   └── output/                   % 測試輸出的 PNG 截圖
 │
 ├── incoming/                     % 運行時指令隊列目錄（.gitignore 排除）
@@ -56,6 +62,7 @@ robot-agent/
 │   ├── ROBOT_AGENT_README.md     % 舊版 RobotAgent 使用說明（僅供參考）
 │   ├── robot_agent_cmds.json     % 指令協議 JSON Schema（舊版 TCP 協議，僅供參考）
 │   ├── plan_refactor_filewatch.md % 架構重構計劃文檔
+│   ├── test_refactor_plan.md     % 測試重構計劃（AI 直接寫代碼模式）
 │   └── plan1.md / plan2.md / plan3.md % 系統實施計劃與架構設計文檔
 │
 ├── README.md                     % 項目總覽（Quick Start、架構圖）
@@ -84,15 +91,21 @@ robot-agent/
 | 方法 | 說明 |
 |------|------|
 | `forwardKinematics(q)` | 正向運動學，返回 4×4 齊次變換矩陣 |
-| `inverseKinematics(T)` | 逆向運動學，解析閉式解；固定 θ1=0 消除冗餘；返回 `[q, err]` |
-| `planTrajectoryCartesian(...)` | 笛卡爾空間軌跡規劃（位置 Lerp + 姿態 SLERP/軸角插值） |
-| `planTrajectoryJoint(...)` | 關節空間線性插值，輸出 Simulink 可用的 `simin` 格式 |
+| `inverseKinematics(T)` | 逆向運動學，解析閉式解；固定 θ1=0 消除冗餘；返回 `[q, err]`，`err=0` 成功，`err=1` 無解 |
+| `planTrajectoryCartesian(T_start, T_end, steps, t_start, t_end)` | 笛卡爾空間軌跡規劃（位置 Lerp + 姿態 SLERP/軸角插值） |
+| `planTrajectoryJoint(q_start, q_end, t_start, t_end)` | 關節空間線性插值，輸出 Simulink 可用的 `simin` 格式 |
 | `jacobian(q)` | 雅可比矩陣；有工具箱時用 `jacob0`，否則數值微分 |
 | `conditionNumber(q)` | 雅可比條件數，評估奇異點接近程度 |
 | `simplePlot(q)` | 無依賴的 3D 骨架繪圖 |
 | `getJointPositions(q)` | 計算各關節在世界坐標系中的位置（9×3） |
+| `displayDHTable()` | 打印 DH 參數表 |
 
-### 2. 文件隊列橋接架構
+### 2. 可視化模塊
+- `initRobotFigure.m`：創建白底 Figure，繪製連桿、關節散點、標註、Base/EE 坐標軸、左上角 4×4 位姿矩陣文本。
+- `updateRobotFigure.m`：通過 `set()` 更新句柄，高效重繪；包含 `isvalid(fig)` 容錯。
+- `animateRobot.m`：遍歷 `q_traj` 調用 `updateRobotFigure`，默認 30 fps。
+
+### 3. 文件隊列橋接架構
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -101,9 +114,9 @@ robot-agent/
 │  ┌─────────────────────────┐        ┌─────────────────────────────────┐    │
 │  │   Agent（Kimi 主控）     │◄──────►│   Skill（robotagent-ops）       │    │
 │  │  • 接收用戶自然語言      │ 查詢   │  • 自然語言指令對照表           │    │
-│  │  • 調用 Skill 解析意圖   │ 模板   │  • 腳本模板（home/move/圓軌跡） │    │
+│  │  • 讀取 Skill 解析意圖   │ 模板   │  • 腳本模板（home/move/圓軌跡） │    │
 │  │  • 生成 .m 代碼並寫入    │ 經驗   │  • 函數簽名確認表               │    │
-│  │  • 執行後讀取 Log 分析   │        │  • 常見問題與調試經驗（1~13）   │    │
+│  │  • 執行後讀取 Log 分析   │        │  • 常見問題與調試經驗           │    │
 │  └───────────┬─────────────┘        └─────────────────────────────────┘    │
 │              │                                                              │
 │              │ 寫入 cmd_xxx.m                                               │
@@ -131,36 +144,36 @@ robot-agent/
 │                              MATLAB 窗口                                     │
 │  ┌───────────────────────┐    ┌──────────────────────────────────────────┐  │
 │  │ 用戶點擊運行          │    │ processIncomingCommands (timer)          │  │
-│  │ robotagent.m          │    │  ├── 掃描 incoming/，按時間排序         │  │
+│  │ robotagent.m          │    │  ├── 掃描 incoming/，按 datenum 排序    │  │
 │  │  → Figure 彈出        │    │  ├── diary 開始記錄 → logs/log_*.txt    │  │
 │  │  → timer 啟動監聽     │    │  ├── run(cmd_path) 執行腳本             │  │
 │  └───────────────────────┘    │  ├── diary off; type(log) 打印 LOG      │  │
-│              │                 │  ├── 複製到 incoming_history/           │  │
-│              │ timer 0.5s      │  └── 失敗時移至 incoming/failed/        │  │
-│              ▼                 └──────────────────────────────────────────┘  │
+│              │                 │  ├── 成功：複製到 incoming_history/     │  │
+│              │ timer 0.5s      │  │      刪除 incoming 中的原文件         │  │
+│              ▼                 │  └── 失敗：複製到 history + failed/     │  │
 │  ┌───────────────────────────────────────────────────────────────────────┐   │
 │  │ Figure 機械臂動畫更新（由腳本內 updateRobotFigure 驅動）              │   │
 │  └───────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **啟動層**: `robotagent.m` 一鍵啟動，自動初始化 Figure 與文件監聽 timer
-- **監聽層**: `timer` 每 0.5 秒掃描 `incoming/` 目錄，發現新文件即執行
-- **執行層**: 生成的 `.m` 腳本包含完整的軌跡規劃與動畫播放邏輯
+- **啟動層**: `robotagent.m` 一鍵啟動，自動初始化 Figure 與文件監聽 `timer`。
+- **監聽層**: `timer` 每 0.5 秒掃描 `incoming/` 目錄，發現 `cmd_*.m` 文件即執行最舊的一個。
+- **執行層**: 生成的 `.m` 腳本包含完整的軌跡規劃與動畫播放邏輯，直接操作 `fig.UserData` 中的 `arm` 與 `current_q`。
 
-支持的指令類型：
+支持的指令類型（由 AI 直接生成腳本實現）：
 - `home` — 回到零位（使用關節空間 `quinticTrajectory`，不會觸發 PAUSE）
 - `move_to` — 笛卡爾空間點到點移動（保持當前姿態）
 - `relative_move` — 相對移動（沿 X/Y/Z 軸偏移，保持姿態）
-- `joint_move` — 單關節轉動（默認角度）
-- `trajectory` — 預定義軌跡（`circle`、`line`）
+- `joint_move` — 單關節轉動
+- `trajectory` — 自定義軌跡（如 `circle`）
 - `get_status` — 查詢當前關節角、末端位姿
 
 ### 自然語言控制
 
-在 Kimi CLI 中直接輸入自然語言，AI 會解析意圖並生成對應 `.m` 腳本投遞到 `incoming/`。
+在 Kimi CLI 中直接輸入自然語言，AI 會根據 `skills/robotagent-ops/SKILL.md` 及 references 生成對應 `.m` 腳本投遞到 `incoming/`。
 
-**支持的 NLP 指令**：
+**支持的常見指令**：
 - `回零位`、`home` → `home`
 - `走到 500 0 800`、`move to (500,0,800)` → `move_to`
 - `z向下200`、`向下移動100`、`x向移動-50` → `relative_move`
@@ -181,47 +194,7 @@ robot-agent/
 
 因此，在 home 位置下「繞末端 X 軸旋轉」等價於「繞世界 Y 軸旋轉」，可讓 Z 軸從朝下轉到朝 ±X。
 
-### 文件調用關係總圖
-
-以下按**啟動 → 指令生成 → 指令執行 → 圖形渲染**四個階段，展示各 `.m` 文件之間的調用關係。
-
-#### 1. 啟動流程（Startup Flow）
-
-```
-robotagent.m
-    ├── addpath('src')
-    ├── arm = Arm7R()                        % 構造函數：檢測工具箱、初始化 DH
-    ├── fig = initRobotFigure(arm, current_q) % 創建 white figure，繪製初始骨架
-    │       └── plot3 / scatter3 / text / axes
-    ├── fig.UserData.is_busy = false
-    ├── t = timer('ExecutionMode','fixedRate','Period',0.5, ...
-    │             'TimerFcn', @(~,~) processIncomingCommands(incoming_dir, fig))
-    └── start(t)
-```
-
-#### 2. 指令生成流程（Command Generation，Kimi CLI 端）
-
-```
-用戶輸入自然語言
-    │
-    ▼
-Agent 讀取 Skill（robotagent-ops）解析意圖
-    │                           ├── SKILL.md：自然語言指令對照表
-    │                           ├── references/script-templates-reference.md：腳本模板
-    │                           └── references/pose-adjustment-reference.md：姿態調整算法
-    ▼
-Agent 生成 .m 代碼並寫入 incoming/
-    ├── 按指令類型組裝 MATLAB 代碼字符串
-    │   ├── home              → quinticTrajectory（關節空間，不會觸發 PAUSE）
-    │   ├── move_to           → FK → 改位置 → IK → planTrajectoryCartesian
-    │   ├── relative_move     → FK → 改單軸偏移 → IK → planTrajectoryCartesian
-    │   ├── joint_move        → 直接修改單關節 → quinticTrajectory
-    │   ├── trajectory        → 自定義逐點 IK / planTrajectoryCartesian
-    │   └── get_status        → FK + fprintf 當前位姿
-    └── 寫入 incoming/cmd_yyyymmdd_HHMMSS_FFF_cmdname.m
-```
-
-#### 3. 指令執行流程（Command Execution，MATLAB 端）
+### 指令執行流程（MATLAB 端）
 
 ```
 timer (每 0.5 秒觸發)
@@ -230,12 +203,12 @@ timer (每 0.5 秒觸發)
 processIncomingCommands(incoming_dir, fig)
     ├── if fig.UserData.is_busy → return（動畫期間不處理新指令）
     ├── files = dir(fullfile(incoming_dir, 'cmd_*.m'))
-    ├── [~, idx] = sort([files.datenum])  % 按時間排序
+    ├── [~, idx] = sort([files.datenum])  % 按創建時間排序
     ├── cmd_path = fullfile(incoming_dir, files(idx(1)).name)
     ├── diary(log_path) 開始記錄
     ├── fig.UserData.is_busy = true
     ├── try
-    │       run(cmd_path)       % 執行生成的 .m 腳本
+    │       run(cmd_path)       % 在函數工作空間執行生成的腳本
     │       copyfile → incoming_history/  % 成功後保存歷史
     │       delete(cmd_path)    % 成功後從隊列刪除
     │   catch ME
@@ -245,87 +218,14 @@ processIncomingCommands(incoming_dir, fig)
     └── fig.UserData.is_busy = false
 ```
 
-#### 4. 生成的 .m 腳本內部執行流程（以 move_to 為例）
+執行腳本時，以下變量已在 `processIncomingCommands` 的函數工作空間中可用：
+- `fig`：Figure 句柄（timer 回調參數）
+- `arm = fig.UserData.arm`：Arm7R 對象
+- `current_q = fig.UserData.current_q`：當前關節角
 
-```
-cmd_20260529_143052_123_move_to.m
-    │
-    ├── T_cur = arm.forwardKinematics(current_q)
-    │       └── Arm7R.forwardKinematics(q) → 4×4 齊次變換矩陣
-    ├── T_target = T_cur
-    ├── T_target(1:3,4) = [x; y; z]          % 只改位置，保持姿態
-    ├── [q_target, err] = arm.inverseKinematics(T_target)
-    │       └── Arm7R.inverseKinematics(T) → [q(1×7), err]
-    ├── if err == 0
-    │       steps = max(30, round(duration * 30))
-    │       [~, q_traj, ~] = arm.planTrajectoryCartesian(T_cur, T_target, steps, 0, duration)
-    │       │       └── 位置 Lerp + 姿態 SLERP → q_traj(steps × 7)
-    │       │       └── 若中間某步 IK 無解，q_traj 對應行為 NaN
-    │       % NaN 處理：播放至最後有效點後暫停，不報錯
-    │       for i = 1:valid_steps
-    │           updateRobotFigure(fig, q_traj(i,:))
-    │           ├── set(h_link, 'XData', ..., 'YData', ..., 'ZData', ...)
-    │           ├── set(h_joints, 'XData', ..., 'YData', ..., 'ZData', ...)
-    │           ├── set(h_axes_ee, ...)
-    │           ├── set(h_pose_text, ...)  % 更新 4×4 位姿矩陣顯示
-    │           └── drawnow limitrate
-    │       end
-    │       fig.UserData.current_q = q_target  % 更新全局狀態
-    └── fprintf('[Done] move_to ...\n')
-```
+因此腳本通常以 `ud = fig.UserData; arm = ud.arm; current_q = ud.current_q;` 開頭。
 
-#### 5. 核心模塊依賴圖
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              robotagent.m                                │
-│                         （一鍵啟動 + timer 管理）                         │
-└─────────────────────────────────────────────────────────────────────────┘
-     │                    │                           │
-     ▼                    ▼                           ▼
-┌──────────┐      ┌──────────────┐          ┌─────────────────────┐
-│ Arm7R.m  │      │initRobotFigure│         │processIncomingCommands│
-│ (運動學)  │      │  (圖形初始化)  │         │    (文件監聽執行器)    │
-└───┬──┬───┘      └──────────────┘         └──────────┬──────────┘
-    │  │                                               │
-    │  │         ┌─────────────────────────────────────┘
-    │  │         │
-    │  │    ┌────▼────┐       ┌──────────────┐
-    │  └───►│   FK    │◄──────│ 生成的 .m 腳本 │
-    │       │   IK    │       │（含完整軌跡邏輯）│
-    │       │getJointPos│     └──────┬───────┘
-    │       └────┬────┘              │
-    │            │                   │
-    │            │            ┌──────▼────────┐
-    │            │            │quinticTrajectory│
-    │            │            │ (五次多項式插值) │
-    │            │            └──────┬────────┘
-    │            │                   │
-    │            │            ┌──────▼────────┐
-    │            └───────────►│ animateRobot   │
-    │                         │ (動畫播放循環)  │
-    │                         └──────┬────────┘
-    │                                │
-    │                         ┌──────▼────────┐
-    └────────────────────────►│updateRobotFigure│
-                              │ (高效 set + drawnow)
-                              └────────────────┘
-
-外層（Kimi CLI，非 MATLAB 進程）：
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Agent（Kimi）          ◄────讀取 Skill────►  Skill（robotagent-ops）    │
-│  • 接收自然語言                                          • 自然語言對照 │
-│  • 生成 .m 代碼                                          • 腳本模板     │
-│  • 分析執行日誌                                          • 函數簽名     │
-│       │                                                           │    │
-│       ▼                                                           │    │
-│  parseNaturalLanguage.m ──► generate_robot_cmd.m ──► incoming/*.m │    │
-│       ▲                                                           │    │
-│       └──────────────────── 調用 Skill 知識庫 ──────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 3. Quintic Polynomial 速度規劃
+### Quintic Polynomial 速度規劃
 
 關節空間運動使用 **五次多項式（Quintic Polynomial）** 插值：
 
@@ -336,13 +236,11 @@ a4 = -15·(q1-q0) / T⁴
 a5 = 6·(q1-q0) / T⁵
 ```
 
-邊界條件：起點與終點的速度、加速度均為零，確保運動平滑無頓挫。
+邊界條件：起點與終點的速度、加速度均為零，確保運動平滑無頓挫。用戶未指定 `duration` 時，默認為 **5 秒**。
 
-用戶未指定 duration 時，默認為 **5 秒**。
+### 笛卡爾空間軌跡規劃
 
-### 4. 笛卡爾空間軌跡規劃
-
-`move_to`、`relative_move`、`trajectory` 等笛卡爾空間指令使用 `planTrajectoryCartesian`：
+`move_to`、`relative_move`、`trajectory` 等笛卡爾空間指令可使用 `planTrajectoryCartesian`：
 
 - **位置插值**：線性插值（Lerp）
 - **姿態插值**：
@@ -351,11 +249,11 @@ a5 = 6·(q1-q0) / T⁵
 - **IK 逐點求解**：對每個插值位姿調用 `inverseKinematics`
 
 **NaN / 無解處理策略（PAUSE 機制）**：
-- 若軌跡中間某點 IK 無解，不調用 `error()`，不讓腳本崩潰
-- 將當前已播放的有效軌跡正常播放完畢
-- 更新 `fig.UserData.current_q` 為最後有效關節角
+- 若軌跡中間某點 IK 無解，不調用 `error()`，不讓腳本崩潰。
+- 將當前已播放的有效軌跡正常播放完畢。
+- 更新 `fig.UserData.current_q` 為最後有效關節角。
 - 在 MATLAB Command Window 輸出 `[PAUSE] IK unreachable at step X/Y. ...`
-- Kimi CLI 端讀取 `logs/log_*.txt` 後主動詢問用戶決策（繼續 / 調整目標 / 回退）
+- Kimi CLI 端讀取 `logs/log_*.txt` 後主動詢問用戶決策（繼續 / 調整目標 / 回退）。
 
 > `home` 指令始終使用 `quinticTrajectory`（關節空間），不會觸發 PAUSE。
 
@@ -371,11 +269,11 @@ a5 = 6·(q1-q0) / T⁵
 默認值: `[149.438, 147.9, 0, 458.09, 93.5, 360.71, 118.27, 272.42]`
 
 ### 代碼風格
-- 類與方法使用中文注釋，遵循 MATLAB Help Text 格式
-- 方法間使用 `%%` 分隔，便於 MATLAB 分節導航
-- 輸入輸出參數在注釋中明確標註維度與單位
-- 工具箱缺失時優先降級（fallback）而非強制報錯
-- 錯誤處理使用 `try-catch`，執行失敗的腳本移至 `incoming/failed/`
+- 類與方法使用中文注釋，遵循 MATLAB Help Text 格式。
+- 方法間使用 `%%` 分隔，便於 MATLAB 分節導航。
+- 輸入輸出參數在注釋中明確標註維度與單位。
+- 工具箱缺失時優先降級（fallback）而非強制報錯。
+- 錯誤處理使用 `try-catch`，執行失敗的腳本移至 `incoming/failed/`。
 
 ### 文件編碼
 生成 `.m` 腳本時應避免 UTF-8 BOM，推薦使用無 BOM 的 UTF-8 編碼。
@@ -406,10 +304,10 @@ Figure 彈出，MATLAB 命令行不阻塞。
 ```
 
 Kimi CLI 內部處理流程：
-1. `parseNaturalLanguage` 解析為 `cmd_struct`
-2. `generate_robot_cmd` 生成對應 `.m` 代碼
-3. 寫入 `robot-agent/incoming/cmd_xxx.m`
-4. MATLAB 的 `timer` 檢測並自動執行
+1. 讀取 `skills/robotagent-ops/SKILL.md` 及 references 解析意圖。
+2. AI 直接生成完整 `.m` 腳本（內含 `quinticTrajectory` 或 `planTrajectoryCartesian`）。
+3. 寫入 `robot-agent/incoming/cmd_xxx.m`。
+4. MATLAB 的 `timer` 檢測並自動執行。
 
 **投放腳本後必做：主動讀取並分析最新 Log**
 
@@ -423,14 +321,10 @@ Kimi CLI 內部處理流程：
    - `[Done]` — 執行成功，向用戶確認軌跡結果
    - `[ERR]` — 執行失敗，分析錯誤行號與原因並報告
    - `[PAUSE]` — 軌跡中斷，提取 `current_q` 與 `target_pos` 分析是否超出工作空間
-3. **向用戶匯報分析結果**
+3. **注意**：`log_*.txt` 的文件創建時間可能早於內容對應的腳本投遞時間，**務必以日誌內容的 `[RX] cmd_...` 行確認對應關係**，不要只按文件時間排序。
+4. **向用戶匯報分析結果**。
 
-### MATLAB 中直接解析（可選）
-
-```matlab
-cmd = parseNaturalLanguage('關節1轉90度');
-generate_robot_cmd(cmd);
-```
+> ❌ **禁止行為**：投放腳本後只回覆「已寫入，請觀察」而不主動讀取 log。
 
 ## 測試策略
 
@@ -440,12 +334,21 @@ generate_robot_cmd(cmd);
 |----------|----------|
 | `test_phase1_figure.m` | Figure 初始化、句柄有效性、關閉後重建、視覺截圖、動畫播放 |
 | `test_phase2_filewatch.m` | 文件監聽、指令執行順序、錯誤處理、`is_busy` 並發保護 |
-| `test_phase3_generator.m` | Quintic 軌跡數學性質、代碼生成器、各指令模板可執行性 |
-| `test_phase4_nlp.m` | 自然語言解析正確性、端到端 NLP→文件→執行 |
-| `test_phase5_cleanup.m` | 舊文件清理驗證、新架構一致性、文檔更新檢查 |
-| `test_phase6_integration.m` | 端到端全鏈路測試、快速連續指令、穩定性、性能基準 |
+| `test_phase3_generator.m` | Quintic 軌跡數學性質（起終點、速度、對稱性） |
+| `test_phase4_cleanup.m` | 舊架構文件已刪除、新函數可訪問、README/AGENTS.md 提及新架構 |
+| `test_phase5_e2e.m` | AI 直接寫代碼模式的端到端測試（home、move_to 可達/不可達、relative_move、joint_move、多段排隊、PAUSE 機制） |
+| `test_phase6_complex.m` | 複合多段指令鏈路（姿態+位置調整、相對移動、圓軌跡、回零位） |
 
 ### 運行測試
+
+推薦使用統一入口：
+```matlab
+cd('D:\Document\code\Matlab\robot-agent\tests');
+addpath('../src');
+run_all_tests;
+```
+
+或單獨運行各 Phase 測試：
 ```matlab
 cd('D:\Document\code\Matlab\robot-agent');
 addpath('src');
@@ -454,16 +357,16 @@ addpath('tests');
 test_phase1_figure;
 test_phase2_filewatch;
 test_phase3_generator;
-test_phase4_nlp;
-test_phase5_cleanup;
-test_phase6_integration;
+test_phase4_cleanup;
+test_phase5_e2e;
+test_phase6_complex;
 ```
 
 視覺測試會自動將 Figure 截圖保存到 `tests/output/`，供人工審查。
 
 或通過 PowerShell / CMD 一次性運行：
 ```powershell
-matlab -batch "cd('D:\Document\code\Matlab\robot-agent'); addpath('src'); addpath('tests'); test_phase1_figure; test_phase2_filewatch; test_phase3_generator; test_phase4_nlp; test_phase5_cleanup; test_phase6_integration;"
+matlab -batch "cd('D:\Document\code\Matlab\robot-agent\tests'); addpath('../src'); run_all_tests;"
 ```
 
 ## 安全與穩定性注意事項
@@ -476,6 +379,7 @@ matlab -batch "cd('D:\Document\code\Matlab\robot-agent'); addpath('src'); addpat
 6. **日誌機制**: `processIncomingCommands` 使用 `diary` 捕獲每次執行的全部命令窗口輸出到 `logs/log_*.txt`，執行結束後自動 `type(log_path)` 打印到命令窗口。
 7. **精度與降級**: 缺少 Robotics System Toolbox 時，笛卡爾軌跡規劃的姿態插值降級為軸角線性插值，路徑可能非最優（非恆定角速度）。
 8. **文件編碼**: 生成 `.m` 腳本時應避免 UTF-8 BOM，推薦使用無 BOM 的 UTF-8 編碼。
+9. **動畫時序**: `animateRobot.m` 使用 `pause(1/fps)`，在 `timer` 回調鏈中可能被 MATLAB 忽略，導致動畫快速完成。如需真實時間播放，可在腳本中使用 `tic/toc` 自行 busy-wait。
 
 ## 擴展預留
 
@@ -492,5 +396,7 @@ matlab -batch "cd('D:\Document\code\Matlab\robot-agent'); addpath('src'); addpat
 | `quinticTrajectory` 傳 `steps` 作為第三參數 | 第三參數是 `T`（總時間秒），`steps` 由函數內部自動計算 |
 | `animateRobot` 傳 `arm` 作為第二參數 | 簽名是 `animateRobot(fig, q_traj, fps)` |
 | 腳本中覆蓋 `fig.UserData` | `initRobotFigure` 存了圖形句柄，啟動腳本只能追加字段，不能整體覆蓋 |
+| 投放後立即讀取 log 卻找不到對應記錄 | `timer` 最長 0.5s 才觸發，加上動畫 duration，需等待足夠時間再讀取 |
+| 只看 log 文件時間判斷是否為最新指令 | 文件創建時間可能早於內容對應的腳本時間，應以 `[RX] cmd_...` 內容為準 |
 
 > 完整排查表與開發經驗見 `skills/robotagent-ops/references/troubleshooting-reference.md`。

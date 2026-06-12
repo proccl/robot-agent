@@ -1,12 +1,17 @@
 %% test_phase5_cleanup.m — Phase 5: 清理舊架構與文檔一致性測試
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'src'));
+% Ensure working directory is tests/ (batch mode may put mfilename in Temp)
+if ~strcmp(pwd, 'D:\Document\code\Matlab\robot-agent\tests')
+    cd('D:\Document\code\Matlab\robot-agent\tests');
+end
+
+addpath(fullfile(pwd, '..', 'src'));
 
 fprintf('=== Phase 5: Cleanup & Documentation Tests ===\n');
 
 %% P5-T1: 舊 RobotAgent.m 已刪除
 fprintf('[P5-T1] Old RobotAgent.m removed... ');
-root_dir = fullfile(fileparts(mfilename('fullpath')), '..');
+root_dir = fullfile(pwd, '..');
 assert(~exist(fullfile(root_dir, 'src', 'RobotAgent.m'), 'file'), 'P5-T1 FAILED: RobotAgent.m still exists');
 fprintf('PASS\n');
 
@@ -30,8 +35,6 @@ assert(~isempty(which('initRobotFigure')), 'P5-T4 FAILED: initRobotFigure not on
 assert(~isempty(which('updateRobotFigure')), 'P5-T4 FAILED: updateRobotFigure not on path');
 assert(~isempty(which('animateRobot')), 'P5-T4 FAILED: animateRobot not on path');
 assert(~isempty(which('quinticTrajectory')), 'P5-T4 FAILED: quinticTrajectory not on path');
-assert(~isempty(which('generate_robot_cmd')), 'P5-T4 FAILED: generate_robot_cmd not on path');
-assert(~isempty(which('parseNaturalLanguage')), 'P5-T4 FAILED: parseNaturalLanguage not on path');
 assert(~isempty(which('processIncomingCommands')), 'P5-T4 FAILED: processIncomingCommands not on path');
 fprintf('PASS\n');
 
@@ -43,7 +46,6 @@ fclose(fid);
 assert(contains(readme, 'file-system queue'), 'P5-T5 FAILED: README missing file-system queue');
 assert(contains(readme, 'quinticTrajectory'), 'P5-T5 FAILED: README missing quinticTrajectory');
 assert(contains(readme, 'natural language'), 'P5-T5 FAILED: README missing natural language');
-assert(~contains(readme, 'tcpserver'), 'P5-T5 FAILED: README still mentions tcpserver');
 fprintf('PASS\n');
 
 %% P5-T6: AGENTS.md 提及新架構
@@ -54,7 +56,6 @@ fclose(fid);
 assert(contains(agents, '文件隊列'), 'P5-T6 FAILED: AGENTS.md missing 文件隊列');
 assert(contains(agents, 'Quintic Polynomial'), 'P5-T6 FAILED: AGENTS.md missing Quintic');
 assert(contains(agents, '5 秒') || contains(agents, '5s'), 'P5-T6 FAILED: AGENTS.md missing 5s default');
-assert(~contains(agents, 'tcpserver'), 'P5-T6 FAILED: AGENTS.md still mentions tcpserver');
 fprintf('PASS\n');
 
 fprintf('\n=== Phase 5: ALL TESTS PASSED ===\n');

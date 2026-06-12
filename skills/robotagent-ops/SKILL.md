@@ -36,7 +36,8 @@ RobotAgent 採用**文件監聽架構**：AI 生成 `.m` 腳本 → 投遞到 `i
    - `[Done]` — 執行成功，向用戶確認軌跡結果
    - `[ERR]` — 執行失敗，分析錯誤行號與原因並報告
    - `[PAUSE]` — 軌跡中斷，提取 `current_q` 與 `target_pos` 分析是否超出工作空間
-3. **向用戶匯報分析結果**
+3. **注意**：`log_*.txt` 的文件創建時間可能早於內容對應的腳本投遞時間，**務必以日誌內容的 `[RX] cmd_...` 行確認對應關係**，不要只按文件時間排序
+4. **向用戶匯報分析結果**
 
 > ❌ **禁止行為**：投放腳本後只回覆「已寫入，請觀察」而不主動讀取 log。
 
@@ -50,18 +51,9 @@ RobotAgent 採用**文件監聽架構**：AI 生成 `.m` 腳本 → 投遞到 `i
 
 **範例**：「回零位」、「z向下200」、「走到 500 0 800」、「x向前100，然後 z軸繞x軸轉至水平」
 
-### 方式二：MATLAB 自然語言解析
+**複合指令範例**：「同時 y 向 -200，z 向 -100，繞末端 x 軸轉至水平且末端 z 指向正 x，然後向前移 500、向下移 600，再繞末端 z 軸畫 r=100 圓一圈」→ AI 會拆分為多個 `cmd_*.m` 腳本，按創建時間順序執行。
 
-```matlab
-generate_robot_cmd(parseNaturalLanguage('回零位'), 'incoming');
-```
-
-### 方式三：直接結構體
-
-```matlab
-cmd = struct('cmd','move_to','position',[500,0,800],'duration',5);
-generate_robot_cmd(cmd, 'incoming');
-```
+> 舊版的 `parseNaturalLanguage.m` 與 `generate_robot_cmd.m` 已在 v0.0.4 重構中移除，現只保留 AI 直接寫代碼模式。
 
 ## 支持的自然語言指令
 
@@ -106,9 +98,11 @@ fprintf('[Done] relative_move completed.\n');
 | `quinticTrajectory` 傳 `steps` 作為第三參數 | 第三參數是 `T`（總時間秒），`steps` 由函數內部自動計算 |
 | `animateRobot` 傳 `arm` 作為第二參數 | 簽名是 `animateRobot(fig, q_traj, fps)` |
 | 腳本中覆蓋 `fig.UserData` | `initRobotFigure` 存了圖形句柄，啟動腳本只能追加字段，不能整體覆蓋 |
+| 投遞後立即讀取 log 卻找不到對應記錄 | `timer` 最長 0.5s 才觸發，加上動畫 duration，需等待足夠時間再讀取 |
+| 只看 log 文件時間判斷是否為最新指令 | 文件創建時間可能早於內容對應的腳本時間，應以 `[RX] cmd_...` 內容為準 |
 
 > 完整排查表與 9 條開發經驗見 [troubleshooting-reference.md](references/troubleshooting-reference.md)。
 
 ---
 
-*最後更新：2026年6月6日（重構 + 新增圓軌跡模板、多段指令排隊機制、經驗10~13）*
+*最後更新：2026年6月12日（新增：本次實戰複合指令經驗、日志時間戳錯位提醒、等待執行完成的 timing）*

@@ -5,15 +5,16 @@ MATLAB-based 7-DOF robot arm visualization with natural language control via fil
 ## Architecture
 
 ```
-User (Kimi CLI)  --Natural Language-->  .m Code  --File Queue-->  MATLAB  --Animation-->  Figure
+User (Kimi CLI)  --Natural Language-->  AI generates .m script  --File Queue-->  MATLAB  --Animation-->  Figure
 ```
 
 - **robotagent.m**: One-click launcher (file watch + animation engine)
 - **Arm7R.m**: 7-DOF forward/inverse kinematics
 - **quinticTrajectory.m**: Quintic polynomial joint-space trajectory planner
-- **generate_robot_cmd.m**: Code generator (cmd_struct → executable .m file)
-- **parseNaturalLanguage.m**: Natural language parser
-- Pure MATLAB, no Robotics Toolbox, no Python bridge, no TCP server
+- **processIncomingCommands.m**: File-queue executor (`timer` callback)
+- **Pure MATLAB**, no Robotics Toolbox required, no Python bridge, no TCP server
+
+> **v0.0.5 update**: The old intermediate layers `generate_robot_cmd.m` and `parseNaturalLanguage.m` have been removed. Kimi now generates executable `.m` scripts directly and drops them into `incoming/`.
 
 ## Quick Start
 
@@ -40,24 +41,36 @@ Move end-effector to (500, 0, 800) in 3 seconds
 ```
 
 Kimi CLI internally:
-1. Parses to `cmd_struct`
-2. Generates a `.m` script with `quinticTrajectory`
+1. Reads the project skill `skills/robotagent-ops/SKILL.md`
+2. Generates a complete `.m` script (trajectory + animation + log output)
 3. Writes it to `robot-agent/incoming/cmd_xxx.m`
 4. MATLAB `timer` detects and executes automatically
+5. Kimi reads `logs/log_xxx.txt` and reports `[Done]` / `[ERR]` / `[PAUSE]`
 
 ## Supported Commands
 
 | Natural Language | Generated Action |
 |-----------------|------------------|
 | `home` / `回到原位` | Return to zero pose (default 5s) |
-| `move to (500, 0, 800)` | Cartesian PTP move (Quintic, default 5s) |
-| `joint 1 90 deg` | Single-joint move (default 5s) |
-| `circle radius 200` | Circular trajectory (default 5s) |
+| `move to (500, 0, 800)` | Cartesian PTP move (default 5s) |
+| `joint 1 90 deg` / `關節1轉90度` | Single-joint move (default 5s) |
+| `circle radius 200` / `畫圓 半徑200` | Circular trajectory around end-effector Z axis |
 | `status` / `現在姿態` | Print current joint angles & EE pose |
+| Composite command | Split into multiple `cmd_*.m` scripts executed in creation order |
 
 Append `in X seconds` / `用 X 秒` to override the default 5-second duration.
 
 ## Tests
+
+Run all phases at once:
+
+```matlab
+cd('D:\Document\code\Matlab\robot-agent\tests');
+addpath('../src');
+run_all_tests;
+```
+
+Or run individual phases:
 
 ```matlab
 cd('D:\Document\code\Matlab\robot-agent');
@@ -67,15 +80,15 @@ addpath('tests');
 test_phase1_figure;
 test_phase2_filewatch;
 test_phase3_generator;
-test_phase4_nlp;
-test_phase5_cleanup;
-test_phase6_integration;
+test_phase4_cleanup;
+test_phase5_e2e;
+test_phase6_complex;
 ```
 
-Or run all at once:
+Or run from PowerShell/CMD:
 
 ```powershell
-matlab -batch "cd('D:\Document\code\Matlab\robot-agent'); addpath('src'); addpath('tests'); test_phase1_figure; test_phase2_filewatch; test_phase3_generator; test_phase4_nlp; test_phase5_cleanup; test_phase6_integration;"
+matlab -batch "cd('D:\Document\code\Matlab\robot-agent\tests'); addpath('../src'); run_all_tests;"
 ```
 
 ## Project Structure
@@ -89,23 +102,55 @@ robot-agent/
 │   ├── updateRobotFigure.m   # Figure efficient update
 │   ├── animateRobot.m        # Animation playback
 │   ├── quinticTrajectory.m   # Quintic polynomial planner
-│   ├── generate_robot_cmd.m  # Code generator
-│   ├── parseNaturalLanguage.m # NLP parser
-│   └── processIncomingCommands.m # File watch executor
+│   ├── processIncomingCommands.m # File-queue executor
+│   └── computeTrajectory.m   # Legacy trajectory helper
 ├── tests/
+│   ├── run_all_tests.m       # Unified test entry
 │   ├── test_phase1_figure.m
 │   ├── test_phase2_filewatch.m
 │   ├── test_phase3_generator.m
-│   ├── test_phase4_nlp.m
-│   ├── test_phase5_cleanup.m
-│   ├── test_phase6_integration.m
+│   ├── test_phase4_cleanup.m
+│   ├── test_phase5_e2e.m
+│   ├── test_phase6_complex.m
 │   └── output/               # Test screenshots
+├── skills/
+│   └── robotagent-ops/       # Project skill for Kimi CLI
+│       ├── SKILL.md
+│       └── references/
 ├── docs/
 │   ├── README_Arm7R.md
 │   ├── plan_refactor_filewatch.md
 │   └── robot_agent_cmds.json
 └── README.md                 # This file
 ```
+
+## Changelog
+
+### v0.0.5
+- Refactored to **AI-direct-code mode**: removed `generate_robot_cmd.m` and `parseNaturalLanguage.m`
+- Added unified test entry `tests/run_all_tests.m`
+- Reorganized test phases:
+  - `test_phase4_cleanup.m`
+  - `test_phase5_e2e.m` (end-to-end integration)
+  - `test_phase6_complex.m` (composite multi-segment commands)
+- Added project skill references for pose adjustment, script templates, and troubleshooting
+- Added `incoming_history/` to preserve every executed script
+- Improved logging: every execution writes to `logs/log_*.txt` with `[RX]`, `[Done]`, `[ERR]`, or `[PAUSE]` markers
+
+### v0.0.4
+- Refactored skill into reference files
+- Fixed `processIncomingCommands.m` variable scope bug
+- Added circle trajectory templates
+
+### v0.0.3
+- Unified logging, pose display
+- Composite commands, multi-cmd queue
+
+### v0.0.2
+- Added project skill, updated AGENTS.md
+
+### v0.0.1
+- File-watch architecture, natural language control, quintic trajectory
 
 ## Compatibility
 

@@ -1,15 +1,20 @@
 %% test_phase2_filewatch.m — Phase 2: 文件監聽測試
 %   驗證 robotagent 啟動、timer 監聽、文件執行與錯誤處理
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'src'));
-output_dir = fullfile(fileparts(mfilename('fullpath')), 'output');
+% Ensure working directory is tests/ (batch mode may put mfilename in Temp)
+if ~strcmp(pwd, 'D:\Document\code\Matlab\robot-agent\tests')
+    cd('D:\Document\code\Matlab\robot-agent\tests');
+end
+
+addpath(fullfile(pwd, '..', 'src'));
+output_dir = fullfile(pwd, 'output');
 if ~exist(output_dir, 'dir'), mkdir(output_dir); end
 
 fprintf('=== Phase 2: File Watch Tests ===\n');
 
 %% P2-T2: incoming/ 目錄自動創建（先驗證目錄邏輯）
 fprintf('[P2-T2] incoming directory auto-create... ');
-test_dir = fullfile(fileparts(mfilename('fullpath')), 'test_incoming');
+test_dir = fullfile(pwd, 'test_incoming');
 if exist(test_dir, 'dir'), rmdir(test_dir, 's'); end
 assert(~exist(test_dir, 'dir'), 'P2-T2 FAILED: test_dir exists before test');
 mkdir(test_dir);
@@ -22,7 +27,7 @@ fprintf('[P2-T3] processIncomingCommands executes file... ');
 arm = Arm7R();
 fig = initRobotFigure(arm, zeros(1,7));
 fig.UserData.is_busy = false;
-test_incoming = fullfile(fileparts(mfilename('fullpath')), 'test_incoming_p2t3');
+test_incoming = fullfile(pwd, 'test_incoming_p2t3');
 if exist(test_incoming, 'dir'), rmdir(test_incoming, 's'); end
 mkdir(test_incoming);
 
@@ -42,7 +47,7 @@ fprintf('PASS\n');
 fprintf('[P2-T4] Multiple files execution order... ');
 fig2 = initRobotFigure(arm, zeros(1,7));
 fig2.UserData.is_busy = false;
-test_incoming2 = fullfile(fileparts(mfilename('fullpath')), 'test_incoming_p2t4');
+test_incoming2 = fullfile(pwd, 'test_incoming_p2t4');
 if exist(test_incoming2, 'dir'), rmdir(test_incoming2, 's'); end
 mkdir(test_incoming2);
 
@@ -73,7 +78,7 @@ fprintf('PASS\n');
 fprintf('[P2-T5] Error script handling... ');
 fig3 = initRobotFigure(arm, zeros(1,7));
 fig3.UserData.is_busy = false;
-test_incoming3 = fullfile(fileparts(mfilename('fullpath')), 'test_incoming_p2t5');
+test_incoming3 = fullfile(pwd, 'test_incoming_p2t5');
 if exist(test_incoming3, 'dir'), rmdir(test_incoming3, 's'); end
 mkdir(test_incoming3);
 
@@ -93,7 +98,7 @@ fprintf('PASS\n');
 fprintf('[P2-T6] is_busy concurrency guard... ');
 fig4 = initRobotFigure(arm, zeros(1,7));
 fig4.UserData.is_busy = true;  % 模擬忙碌狀態
-test_incoming4 = fullfile(fileparts(mfilename('fullpath')), 'test_incoming_p2t6');
+test_incoming4 = fullfile(pwd, 'test_incoming_p2t6');
 if exist(test_incoming4, 'dir'), rmdir(test_incoming4, 's'); end
 mkdir(test_incoming4);
 
@@ -112,7 +117,7 @@ fprintf('PASS\n');
 fprintf('[P2-T7] Empty incoming no error... ');
 fig5 = initRobotFigure(arm, zeros(1,7));
 fig5.UserData.is_busy = false;
-test_incoming5 = fullfile(fileparts(mfilename('fullpath')), 'test_incoming_p2t7');
+test_incoming5 = fullfile(pwd, 'test_incoming_p2t7');
 if exist(test_incoming5, 'dir'), rmdir(test_incoming5, 's'); end
 mkdir(test_incoming5);
 

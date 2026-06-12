@@ -1,0 +1,246 @@
+%% test_phase5_e2e.m — Phase 5: 端到端集成測試（AI 直接寫代碼模式）
+%   模擬 AI 生成 .m 腳本 → 寫入目錄 → processIncomingCommands 執行 → 驗證結果
+
+% Ensure working directory is tests/ (batch mode may put mfilename in Temp)
+if ~strcmp(pwd, 'D:\Document\code\Matlab\robot-agent\tests')
+    cd('D:\Document\code\Matlab\robot-agent\tests');
+end
+
+addpath(fullfile(pwd, '..', 'src'));
+output_dir = fullfile(pwd, 'output');
+if ~exist(output_dir, 'dir'), mkdir(output_dir); end
+
+fprintf('=== Phase 5: End-to-End Integration Tests (AI Direct Code) ===\n');
+
+arm = Arm7R();
+
+%% P5-T1: home 端到端
+fprintf('[P5-T1] End-to-end home... ');
+fig1 = initRobotFigure(arm, zeros(1,7));
+fig1.UserData.is_busy = false;
+test_in1 = fullfile(pwd, 'test_incoming_p5t1');
+if exist(test_in1, 'dir'), rmdir(test_in1, 's'); end
+mkdir(test_in1);
+
+fid = fopen(fullfile(test_in1, 'cmd_home.m'), 'w');
+fprintf(fid, [...
+    'ud = fig.UserData;\n' ...
+    'q0 = ud.current_q;\n' ...
+    'q1 = zeros(1,7);\n' ...
+    'q_traj = quinticTrajectory(q0, q1, 2, 30);\n' ...
+    'animateRobot(fig, q_traj, 30);\n' ...
+    'fprintf(''[Done] home\\n'');\n' ...
+]);
+fclose(fid);
+
+processIncomingCommands(test_in1, fig1);
+pause(0.5);
+assert(max(abs(fig1.UserData.current_q)) < 1e-6, 'P5-T1 FAILED: not at home');
+assert(~exist(fullfile(test_in1, 'cmd_home.m'), 'file'), 'P5-T1 FAILED: file not deleted');
+close(fig1);
+rmdir(test_in1, 's');
+fprintf('PASS\n');
+
+%% P5-T2: move_to 不可達位置 → 錯誤處理
+fprintf('[P5-T2] End-to-end move_to unreachable... ');
+fig2 = initRobotFigure(arm, zeros(1,7));
+fig2.UserData.is_busy = false;
+test_in2 = fullfile(pwd, 'test_incoming_p5t2');
+if exist(test_in2, 'dir'), rmdir(test_in2, 's'); end
+mkdir(test_in2);
+
+fid = fopen(fullfile(test_in2, 'cmd_move_to_unreachable.m'), 'w');
+fprintf(fid, [...
+    'ud = fig.UserData;\n' ...
+    'arm = ud.arm;\n' ...
+    'q0 = ud.current_q;\n' ...
+    'T_cur = arm.forwardKinematics(q0);\n' ...
+    'T_target = T_cur;\n' ...
+    'T_target(1:3,4) = [500; 0; 800];\n' ...
+    '[q1, err] = arm.inverseKinematics(T_target);\n' ...
+    'if err == 0\n' ...
+    '    q_traj = quinticTrajectory(q0, q1, 3, 30);\n' ...
+    '    animateRobot(fig, q_traj, 30);\n' ...
+    '    fprintf(''[Done] move_to (500,0,800)\\n'');\n' ...
+    'else\n' ...
+    '    fprintf(''[ERR] IK unreachable\\n'');\n' ...
+    'end\n' ...
+]);
+fclose(fid);
+
+q_before2 = fig2.UserData.current_q;
+processIncomingCommands(test_in2, fig2);
+pause(0.5);
+assert(isequal(fig2.UserData.current_q, q_before2), 'P5-T2 FAILED: current_q changed on unreachable target');
+close(fig2);
+rmdir(test_in2, 's');
+fprintf('PASS\n');
+
+%% P5-T3: move_to 可達位置 → 正常執行
+fprintf('[P5-T3] End-to-end move_to reachable (300,0,700)... ');
+fig2b = initRobotFigure(arm, zeros(1,7));
+fig2b.UserData.is_busy = false;
+test_in2b = fullfile(pwd, 'test_incoming_p5t2b');
+if exist(test_in2b, 'dir'), rmdir(test_in2b, 's'); end
+mkdir(test_in2b);
+
+fid = fopen(fullfile(test_in2b, 'cmd_move_to_reachable.m'), 'w');
+fprintf(fid, [...
+    'ud = fig.UserData;\n' ...
+    'arm = ud.arm;\n' ...
+    'q0 = ud.current_q;\n' ...
+    'T_cur = arm.forwardKinematics(q0);\n' ...
+    'T_target = T_cur;\n' ...
+    'T_target(1:3,4) = [300; 0; 700];\n' ...
+    '[q1, err] = arm.inverseKinematics(T_target);\n' ...
+    'if err == 0\n' ...
+    '    q_traj = quinticTrajectory(q0, q1, 3, 30);\n' ...
+    '    animateRobot(fig, q_traj, 30);\n' ...
+    '    fprintf(''[Done] move_to (300,0,700)\\n'');\n' ...
+    'else\n' ...
+    '    fprintf(''[ERR] IK unreachable\\n'');\n' ...
+    'end\n' ...
+]);
+fclose(fid);
+
+processIncomingCommands(test_in2b, fig2b);
+pause(0.5);
+T_ee = arm.forwardKinematics(fig2b.UserData.current_q);
+assert(norm(T_ee(1:3,4)' - [300, 0, 700]) < 1, 'P5-T3 FAILED: position mismatch');
+close(fig2b);
+rmdir(test_in2b, 's');
+fprintf('PASS\n');
+
+%% P5-T4: relative_move 端到端
+fprintf('[P5-T4] End-to-end relative_move... ');
+fig3 = initRobotFigure(arm, zeros(1,7));
+fig3.UserData.is_busy = false;
+test_in3 = fullfile(pwd, 'test_incoming_p5t3');
+if exist(test_in3, 'dir'), rmdir(test_in3, 's'); end
+mkdir(test_in3);
+
+fid = fopen(fullfile(test_in3, 'cmd_relative.m'), 'w');
+fprintf(fid, [...
+    'ud = fig.UserData;\n' ...
+    'arm = ud.arm;\n' ...
+    'q0 = ud.current_q;\n' ...
+    'T_cur = arm.forwardKinematics(q0);\n' ...
+    'T_target = T_cur;\n' ...
+    'T_target(1:3,4) = T_target(1:3,4) + [0; -200; -100];\n' ...
+    '[q1, err] = arm.inverseKinematics(T_target);\n' ...
+    'if err == 0\n' ...
+    '    q_traj = quinticTrajectory(q0, q1, 2, 30);\n' ...
+    '    animateRobot(fig, q_traj, 30);\n' ...
+    '    fprintf(''[Done] relative_move (Y-200,Z-100)\\n'');\n' ...
+    'else\n' ...
+    '    fprintf(''[ERR] IK unreachable\\n'');\n' ...
+    'end\n' ...
+]);
+fclose(fid);
+
+q0_rel = fig3.UserData.current_q;
+processIncomingCommands(test_in3, fig3);
+pause(0.5);
+T0_rel = arm.forwardKinematics(q0_rel);
+T_ee3 = arm.forwardKinematics(fig3.UserData.current_q);
+delta_rel = T_ee3(1:3,4) - T0_rel(1:3,4);
+assert(abs(delta_rel(2) - (-200)) < 1, 'P5-T4 FAILED: Y delta mismatch');
+assert(abs(delta_rel(3) - (-100)) < 1, 'P5-T4 FAILED: Z delta mismatch');
+close(fig3);
+rmdir(test_in3, 's');
+fprintf('PASS\n');
+
+%% P5-T5: joint_move 端到端
+fprintf('[P5-T5] End-to-end joint_move... ');
+fig4 = initRobotFigure(arm, zeros(1,7));
+fig4.UserData.is_busy = false;
+test_in4 = fullfile(pwd, 'test_incoming_p5t4');
+if exist(test_in4, 'dir'), rmdir(test_in4, 's'); end
+mkdir(test_in4);
+
+fid = fopen(fullfile(test_in4, 'cmd_joint.m'), 'w');
+fprintf(fid, [...
+    'ud = fig.UserData;\n' ...
+    'q0 = ud.current_q;\n' ...
+    'q1 = q0;\n' ...
+    'q1(1) = pi/2;\n' ...
+    'q_traj = quinticTrajectory(q0, q1, 2, 30);\n' ...
+    'animateRobot(fig, q_traj, 30);\n' ...
+    'fprintf(''[Done] joint_move (joint1=90deg)\\n'');\n' ...
+]);
+fclose(fid);
+
+processIncomingCommands(test_in4, fig4);
+pause(0.5);
+assert(abs(fig4.UserData.current_q(1) - pi/2) < 1e-6, 'P5-T5 FAILED: joint angle mismatch');
+close(fig4);
+rmdir(test_in4, 's');
+fprintf('PASS\n');
+
+%% P5-T6: 多段排隊（2 個腳本按 datenum 順序執行）
+fprintf('[P5-T6] Multi-script queue execution... ');
+fig5 = initRobotFigure(arm, zeros(1,7));
+fig5.UserData.is_busy = false;
+test_in5 = fullfile(pwd, 'test_incoming_p5t5');
+if exist(test_in5, 'dir'), rmdir(test_in5, 's'); end
+mkdir(test_in5);
+
+% 腳本 A：joint1 = pi/4
+fid = fopen(fullfile(test_in5, 'cmd_A_joint.m'), 'w');
+fprintf(fid, 'q0 = fig.UserData.current_q; q1 = q0; q1(1) = pi/4; q_traj = quinticTrajectory(q0, q1, 1, 30); animateRobot(fig, q_traj, 30); fprintf(''[Done] A\\n'');\n');
+fclose(fid);
+pause(0.15);
+
+% 腳本 B：joint1 = pi/2（後創建，應該第二個執行）
+fid = fopen(fullfile(test_in5, 'cmd_B_joint.m'), 'w');
+fprintf(fid, 'q0 = fig.UserData.current_q; q1 = q0; q1(1) = pi/2; q_traj = quinticTrajectory(q0, q1, 1, 30); animateRobot(fig, q_traj, 30); fprintf(''[Done] B\\n'');\n');
+fclose(fid);
+
+processIncomingCommands(test_in5, fig5);
+pause(0.5);
+assert(abs(fig5.UserData.current_q(1) - pi/4) < 1e-6, 'P5-T6 FAILED: first script wrong');
+
+processIncomingCommands(test_in5, fig5);
+pause(0.5);
+assert(abs(fig5.UserData.current_q(1) - pi/2) < 1e-6, 'P5-T6 FAILED: second script wrong');
+
+close(fig5);
+rmdir(test_in5, 's');
+fprintf('PASS\n');
+
+%% P5-T7: PAUSE 機制（NaN 軌跡處理）
+fprintf('[P5-T7] PAUSE mechanism (NaN trajectory)... ');
+fig6 = initRobotFigure(arm, zeros(1,7));
+fig6.UserData.is_busy = false;
+test_in6 = fullfile(pwd, 'test_incoming_p5t6');
+if exist(test_in6, 'dir'), rmdir(test_in6, 's'); end
+mkdir(test_in6);
+
+fid = fopen(fullfile(test_in6, 'cmd_pause.m'), 'w');
+fprintf(fid, [...
+    'ud = fig.UserData;\n' ...
+    'q0 = ud.current_q;\n' ...
+    'q1 = q0; q1(1) = pi/4;\n' ...
+    'q_traj = quinticTrajectory(q0, q1, 2, 30);\n' ...
+    'q_traj(45:end, :) = NaN;\n' ...
+    'valid = ~any(isnan(q_traj), 2);\n' ...
+    'for i = 1:sum(valid)\n' ...
+    '    updateRobotFigure(fig, q_traj(i,:));\n' ...
+    '    drawnow;\n' ...
+    '    pause(1/30);\n' ...
+    'end\n' ...
+    'fig.UserData.current_q = q_traj(sum(valid), :);\n' ...
+    'fprintf(''[PAUSE] NaN encountered at step %%d/%%d'', sum(valid)+1, size(q_traj,1));\n' ...
+]);
+fclose(fid);
+
+q_before = fig6.UserData.current_q;
+processIncomingCommands(test_in6, fig6);
+pause(0.5);
+assert(~isequal(fig6.UserData.current_q, q_before), 'P5-T7 FAILED: current_q not updated');
+assert(~any(isnan(fig6.UserData.current_q)), 'P5-T7 FAILED: current_q contains NaN');
+close(fig6);
+rmdir(test_in6, 's');
+fprintf('PASS\n');
+
+fprintf('\n=== Phase 5: ALL TESTS PASSED ===\n');
