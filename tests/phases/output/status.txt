@@ -1,0 +1,7 @@
+=== Robot Status ===
+Joint angles (rad): [0 0 0 0 0 0 0]
+Position (mm): [266.2;-93.5;695.8]
+Rotation matrix:
+X-axis: [0;1;0]
+Y-axis: [1;0;0]
+Z-axis: [0;0;-1]

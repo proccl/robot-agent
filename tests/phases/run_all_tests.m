@@ -1,10 +1,10 @@
 % run_all_tests.m — 運行全部 6 個測試腳本並報告結果
 % Ensure working directory is tests/ (batch mode may put mfilename in Temp)
-if ~strcmp(pwd, 'D:\Document\code\Matlab\robot-agent\tests')
-    cd('D:\Document\code\Matlab\robot-agent\tests');
+if ~strcmp(pwd, 'D:\Document\code\Matlab\robot-agent\tests\phases')
+    cd('D:\Document\code\Matlab\robot-agent\tests\phases');
 end
 
-addpath(fullfile(pwd, '..', 'src'));
+addpath(fullfile(pwd, '..', '..', 'src'));
 addpath(fullfile(pwd));
 
 results = struct();

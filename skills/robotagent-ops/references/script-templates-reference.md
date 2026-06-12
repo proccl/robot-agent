@@ -184,6 +184,94 @@ animateRobot(fig, q2, 30);
 
 ---
 
+## 模板 G：帶障礙物迴避的移動（`planTrajectoryWithObstacle`）
+
+**適用場景**：`move_to` / `relative_move` 且當前 Figure 中啟用了 `obstacle_avoidance_enabled`。規劃器會先檢查直線軌跡是否與紅色障礙球碰撞；若碰撞，則調用 `manipulatorRRT` 自動規劃迴避路徑。
+
+```matlab
+ud = fig.UserData;
+arm = ud.arm;
+current_q = ud.current_q;
+
+T_cur = arm.forwardKinematics(current_q);
+T_target = T_cur;
+T_target(1:3, 4) = [x; y; z];   % 目標位置
+
+duration = 5;
+fps = 30;
+
+if isfield(ud, 'obstacle_avoidance_enabled') && ud.obstacle_avoidance_enabled && ...
+   isfield(ud, 'obstacle') && isfield(ud, 'robot_tree') && ~isempty(ud.robot_tree)
+    [q_traj, avoided, info] = planTrajectoryWithObstacle(arm, current_q, T_target, ud.obstacle, duration, ud.robot_tree);
+    if isempty(q_traj)
+        fprintf('%s\n', info);
+        fprintf('[PAUSE] Unable to plan obstacle-free path to target. Keeping current pose.\n');
+        return;
+    end
+    if avoided
+        fprintf('[Info] Obstacle detected; RRT avoidance path used.\n');
+    end
+else
+    steps = max(30, round(duration * fps));
+    [~, q_traj, ~] = arm.planTrajectoryCartesian(T_cur, T_target, steps, 0, duration);
+end
+
+% nan 處理（planTrajectoryWithObstacle 不返回 nan，但為統一保留）
+if any(isnan(q_traj(:)))
+    fprintf('[PAUSE] Trajectory contains NaN. Keeping current pose.\n');
+    return;
+end
+
+animateRobot(fig, q_traj, fps);
+fprintf('[Done] move_to with obstacle avoidance completed.\n');
+```
+
+> **前提條件**：`robotagent.m` 中需將 `enable_obstacle_avoidance` 設為 `true` 後再啟動，才會構建 `fig.UserData.robot_tree`。若啟動後 `obstacle_avoidance_enabled` 為 `false`，腳本會回退到普通笛卡爾軌跡。
+> 
+> **開關控制**：用戶可在 MATLAB 命令行切換：
+> ```matlab
+> fig.UserData.obstacle_enabled = false;            % 隱藏紅球
+> fig.UserData.obstacle_avoidance_enabled = false;  % 關閉避障規劃
+> ```
+
+### 模板 G1：移向障礙物中心（動態讀取球位置）
+
+```matlab
+ud = fig.UserData;
+arm = ud.arm;
+current_q = ud.current_q;
+
+T_cur = arm.forwardKinematics(current_q);
+T_target = T_cur;
+T_target(1:3, 4) = ud.obstacle.center;   % 始終使用當前障礙物中心
+
+% 後續與模板 G 相同：調用 planTrajectoryWithObstacle 或 planTrajectoryCartesian
+```
+
+> 注意：若目標點在障礙物內部，`manipulatorRRT` 會報錯 "goal configuration is in world collision"。此時應將目標設在球外。
+
+### 模板 G2：沿障礙物方向移動固定距離
+
+```matlab
+ud = fig.UserData;
+arm = ud.arm;
+current_q = ud.current_q;
+
+T_cur = arm.forwardKinematics(current_q);
+cur_pos = T_cur(1:3, 4);
+center = ud.obstacle.center;
+
+direction = center - cur_pos;
+unit_dir = direction / norm(direction);
+
+T_target = T_cur;
+T_target(1:3, 4) = cur_pos + 500 * unit_dir;   % 向球心方向移動 500 mm
+
+% 後續與模板 G 相同
+```
+
+---
+
 ## 關於動畫幀率
 
 `animateRobot` 內部使用 `pause(1/fps)` 控制幀率。但在 `timer` 回調執行鏈中，`pause` 被 MATLAB 忽略，導致動畫「快進」——循環瞬間完成，所有幀在短時間內全部刷新。

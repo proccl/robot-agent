@@ -59,9 +59,10 @@ RobotAgent 採用 **文件監聽架構**（非 TCP）：
 - **核心組件**：
   - `robotagent.m`：一鍵啟動，初始化 Figure + 啟動 timer
   - `processIncomingCommands.m`：timer 回調，按文件名排序執行
-  - `generate_robot_cmd.m`：結構化指令 → 可執行 `.m` 文件
-  - `parseNaturalLanguage.m`：中英自然語言 → `cmd_struct`
   - `quinticTrajectory.m`：五次多項式關節空間軌跡
+  - `buildRobotTree.m`：將 `Arm7R` 轉換為 `rigidBodyTree`（避障用）
+  - `checkRobotObstacleCollision.m`：檢測機械臂與球形障礙物碰撞
+  - `planTrajectoryWithObstacle.m`：直線軌跡碰撞時調用 RRT 繞行
 
 ## 文件目錄說明
 
@@ -108,6 +109,61 @@ MATLAB 會**自動**在 Command Window 打印如下區塊：
    - **「回退」** — 改用關節空間 `quinticTrajectory`，保證可達
 
 > **注意**：`home` 指令始終使用 `quinticTrajectory`（關節空間），不會觸發 PAUSE。
+
+## 障礙物與避障開關
+
+### 可視化開關
+
+Figure 中可顯示一個紅色半透明障礙球：
+
+```matlab
+fig.UserData.obstacle_enabled = true;   % 顯示紅球
+fig.UserData.obstacle_enabled = false;  % 隱藏紅球
+```
+
+球的幾何參數存儲在 `fig.UserData.obstacle`：
+
+```matlab
+center = fig.UserData.obstacle.center;   % 3×1，單位 mm
+radius = fig.UserData.obstacle.radius;   % 單位 mm
+```
+
+### 避障規劃開關
+
+`obstacle_enabled` 只控制**顯示**，不控制規劃。避障規劃由另一個字段控制：
+
+```matlab
+fig.UserData.obstacle_avoidance_enabled = true;   % 啟用 RRT 避障
+fig.UserData.obstacle_avoidance_enabled = false;  % 使用普通笛卡爾軌跡
+```
+
+**啟用條件**：
+1. `robotagent.m` 啟動前將 `enable_obstacle_avoidance = true`
+2. MATLAB 必須安裝 **Robotics System Toolbox**
+3. 工具箱檢測通過（見下方「工具箱檢測」）
+
+滿足後，`robotagent.m` 會調用 `buildRobotTree(arm)` 構建 `fig.UserData.robot_tree`，並設置 `obstacle_avoidance_enabled = true`。
+
+### 工具箱檢測
+
+`ver('Robotics System Toolbox')` 在某些 MATLAB 安裝上會返回空，導致避障被錯誤禁用。正確做法：
+
+```matlab
+v = ver;
+has_robotics_toolbox = any(strcmpi({v.Name}, 'Robotics System Toolbox'));
+```
+
+### 目標點在障礙物內部
+
+`manipulatorRRT` 要求起點和終點都處於無碰撞狀態。若目標在紅球內部，會報錯：
+
+```text
+The goal configuration of the robot is in world collision.
+```
+
+解決：將目標設在球外（如表面外 10~50 mm），或臨時關閉避障。
+
+---
 
 ## Figure 位姿矩陣顯示
 

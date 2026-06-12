@@ -1,11 +1,22 @@
-function fig = initRobotFigure(arm, q)
+function fig = initRobotFigure(arm, q, obstacle)
 % initRobotFigure 初始化機械臂 Figure
-%   arm: Arm7R 對象
-%   q:   初始關節角 (1x7)，默認 zeros(1,7)
-%   fig: 返回 figure 句柄，圖形對象句柄存儲在 fig.UserData
+%   arm:      Arm7R 對象
+%   q:        初始關節角 (1x7)，默認 zeros(1,7)
+%   obstacle: 障礙物結構體，含 center (1x3 或 3x1)、radius、
+%             safety_margin、enabled；可選，默認位於 [800,0,0] 的紅球
+%   fig:      返回 figure 句柄，圖形對象句柄存儲在 fig.UserData
 
     if nargin < 2 || isempty(q)
         q = zeros(1, 7);
+    end
+    if nargin < 3 || isempty(obstacle)
+        obstacle = struct('center', [800; 0; 0], ...
+                          'radius', 100, ...
+                          'safety_margin', 50, ...
+                          'enabled', true);
+    end
+    if isrow(obstacle.center)
+        obstacle.center = obstacle.center(:);
     end
     
     fig = figure('Color', 'white', ...
@@ -58,6 +69,17 @@ function fig = initRobotFigure(arm, q)
                              colors{j}, 'LineWidth', 2);
     end
     
+    % 繪製障礙物（紅色半透明球體）
+    [X, Y, Z] = sphere(20);
+    X = obstacle.center(1) + obstacle.radius * X;
+    Y = obstacle.center(2) + obstacle.radius * Y;
+    Z = obstacle.center(3) + obstacle.radius * Z;
+    h_obstacle = surf(ax, X, Y, Z, ...
+                      'FaceColor', 'r', ...
+                      'FaceAlpha', 0.35, ...
+                      'EdgeColor', 'none', ...
+                      'Visible', bool2visible(obstacle.enabled));
+    
     % 坐標軸設置
     xlabel(ax, 'X (mm)', 'FontSize', 12);
     ylabel(ax, 'Y (mm)', 'FontSize', 12);
@@ -107,7 +129,19 @@ function fig = initRobotFigure(arm, q)
     fig.UserData.h_pose_text = h_pose_text;
     fig.UserData.arm = arm;
     fig.UserData.current_q = q;
+    fig.UserData.obstacle = obstacle;
+    fig.UserData.h_obstacle = h_obstacle;
+    fig.UserData.obstacle_enabled = obstacle.enabled;
+    fig.UserData.obstacle_avoidance_enabled = false;
     
     % 初始化時更新一次，確保 EE 坐標軸正確定位
     updateRobotFigure(fig, q);
+end
+
+function vis = bool2visible(flag)
+    if flag
+        vis = 'on';
+    else
+        vis = 'off';
+    end
 end

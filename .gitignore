@@ -15,6 +15,7 @@ logs/
 
 # Test output PNG files
 tests/output/*.png
+tests/phases/output/*.png
 
 # MATLAB autosave files
 *.asv

@@ -133,4 +133,69 @@ function updateRobotFigure(fig, q)
 | `fig` | `figure handle` | Figure 句柄（需包含 `UserData` 圖形句柄） |
 | `q` | `1×7 double` | 關節角 |
 
-**內部行為**：`set()` 更新連桿/關節/標籤/EE 坐標軸 + 左上角位姿文本 + `drawnow limitrate`。
+**內部行為**：`set()` 更新連桿/關節/標籤/EE 坐標軸 + 障礙球可見性 + 左上角位姿文本 + `drawnow limitrate`。
+
+---
+
+## 避障相關函數
+
+### `buildRobotTree` — 構建 rigidBodyTree
+
+```matlab
+function tree = buildRobotTree(arm)
+```
+
+| 參數 | 類型 | 說明 |
+|------|------|------|
+| `arm` | `Arm7R` | 機械臂對象 |
+| `tree` | `rigidBodyTree` | Robotics System Toolbox 機器人樹 |
+
+**內部行為**：根據 `Arm7R` 的標準 DH 參數構建 `rigidBodyTree`，為每個非固定 body 原點添加 `collisionSphere(20)`（單位 mm）。`DataFormat = 'row'`。
+
+---
+
+### `checkRobotObstacleCollision` — 檢測機械臂與障礙球碰撞
+
+```matlab
+function [is_collision, min_dist] = checkRobotObstacleCollision(robot_tree, q, obstacle)
+```
+
+| 參數 | 類型 | 說明 |
+|------|------|------|
+| `robot_tree` | `rigidBodyTree` | 由 `buildRobotTree` 構建 |
+| `q` | `1×7 double` | 關節角 |
+| `obstacle` | `struct` | 必須包含 `center`（3×1）和 `radius` |
+| `is_collision` | `logical` | `true` 表示發生碰撞 |
+| `min_dist` | `double` | 最小分離距離（碰撞時為 `-inf`） |
+
+---
+
+### `planTrajectoryWithObstacle` — 帶避障的軌跡規劃
+
+```matlab
+function [q_traj, avoided, info] = planTrajectoryWithObstacle(arm, current_q, T_target, obstacle, duration, robot_tree)
+```
+
+| 參數 | 類型 | 說明 |
+|------|------|------|
+| `arm` | `Arm7R` | 機械臂對象 |
+| `current_q` | `1×7 double` | 起始關節角 |
+| `T_target` | `4×4 double` | 目標位姿（齊次變換矩陣） |
+| `obstacle` | `struct` | 障礙物，含 `center`、`radius`、`safety_margin` |
+| `duration` | `double` | 總時間（秒），默認 5 |
+| `robot_tree` | `rigidBodyTree` | 由 `buildRobotTree` 構建 |
+
+| 返回值 | 類型 | 說明 |
+|--------|------|------|
+| `q_traj` | `N×7 double` | 關節角軌跡；規劃失敗時為空矩陣 `[]` |
+| `avoided` | `logical` | `true` 表示使用了 RRT 繞行 |
+| `info` | `char` | 失敗時包含 `[PAUSE] ...` 信息 |
+
+**行為**：
+1. 先生成笛卡爾直線軌跡 `q_nominal`
+2. 若無碰撞，直接返回 `q_nominal`，`avoided = false`
+3. 若有碰撞，調用 `manipulatorRRT` 規劃繞行路徑
+4. RRT 成功後用 `quinticTrajectory` 分段平滑，並驗證中間點
+5. RRT 失敗或驗證失敗：返回 `[]`，`info` 含 `[PAUSE]`
+
+**注意**：起點和終點都必須是無碰撞狀態。目標在障礙物內部時會失敗。

@@ -12,7 +12,7 @@ description: 操作 RobotAgent 文件監聽架構機械臂系統的指南。涵�
 | 系統架構、文件目錄、日誌機制、PAUSE 處理 | [architecture-reference.md](references/architecture-reference.md) |
 | 腳本模板（home / move_to / 姿態調整 / 複合指令） | [script-templates-reference.md](references/script-templates-reference.md) |
 | 姿態調整算法、Rodrigues 公式、home 軸向對應 | [pose-adjustment-reference.md](references/pose-adjustment-reference.md) |
-| 常見問題排查表、9 條開發經驗 | [troubleshooting-reference.md](references/troubleshooting-reference.md) |
+| 常見問題排查表、18 條開發經驗 | [troubleshooting-reference.md](references/troubleshooting-reference.md) |
 | 函數簽名確認表（quinticTrajectory / animateRobot / planTrajectoryCartesian） | [function-signatures-reference.md](references/function-signatures-reference.md) |
 
 ## 一句話架構
@@ -64,6 +64,9 @@ RobotAgent 採用**文件監聽架構**：AI 生成 `.m` 腳本 → 投遞到 `i
 | 相對移動 | `z向下200`、`向下移動100`、`x向移動-50` | `relative_move` |
 | 關節運動 | `關節3轉45度`、`joint 2 30 deg` | `joint_move` |
 | 畫圓 | `畫圓 半徑200`、`circle radius 200` | `trajectory` (circle) |
+| 帶避障移動 | `走到 300 -300 600 避開障礙物` | `move_to`（當 `obstacle_avoidance_enabled=true` 時使用 `planTrajectoryWithObstacle`） |
+| 移向障礙物中心 | `移向球心` | 使用 `ud.obstacle.center` 作為目標；若目標在球內會 PAUSE |
+| 沿方向移動 | `向球心方向移動 500` | 計算當前位置到球心的單位方向向量，乘以 500 |
 | 查詢狀態 | `status`、`姿態` | `get_status` |
 
 > 姿態調整指令（如「Z 軸指向 +X」）**不支持自然語言解析**，需由 AI 直接生成自定義腳本。詳見 [pose-adjustment-reference.md](references/pose-adjustment-reference.md)。
@@ -100,9 +103,12 @@ fprintf('[Done] relative_move completed.\n');
 | 腳本中覆蓋 `fig.UserData` | `initRobotFigure` 存了圖形句柄，啟動腳本只能追加字段，不能整體覆蓋 |
 | 投遞後立即讀取 log 卻找不到對應記錄 | `timer` 最長 0.5s 才觸發，加上動畫 duration，需等待足夠時間再讀取 |
 | 只看 log 文件時間判斷是否為最新指令 | 文件創建時間可能早於內容對應的腳本時間，應以 `[RX] cmd_...` 內容為準 |
+| 避障腳本中硬編碼障礙物位置 | 用戶可能修改了 `robotagent.m` 中的 `obstacle.center` | 始終使用 `ud.obstacle.center` 動態讀取 |
+| 目標點設在障礙物內部 | `manipulatorRRT` 要求起終點都無碰撞 | 將目標設在球外，或臨時關閉避障 |
+| 避障開關沒打開 | `robotagent.m` 中 `enable_obstacle_avoidance` 默認為 `false` | 啟動前改為 `true`，或運行中設置 `fig.UserData.obstacle_avoidance_enabled = true` |
 
-> 完整排查表與 9 條開發經驗見 [troubleshooting-reference.md](references/troubleshooting-reference.md)。
+> 完整排查表與 18 條開發經驗見 [troubleshooting-reference.md](references/troubleshooting-reference.md)。
 
 ---
 
-*最後更新：2026年6月12日（新增：本次實戰複合指令經驗、日志時間戳錯位提醒、等待執行完成的 timing）*
+*最後更新：2026年6月13日（新增：避障架構、動態目標、方向移動、RRT 目標在碰撞中、工具箱檢測經驗、碰撞幾何限制）*

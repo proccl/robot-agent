@@ -65,8 +65,8 @@ Append `in X seconds` / `用 X 秒` to override the default 5-second duration.
 Run all phases at once:
 
 ```matlab
-cd('D:\Document\code\Matlab\robot-agent\tests');
-addpath('../src');
+cd('D:\Document\code\Matlab\robot-agent\tests\phases');
+addpath('../../src');
 run_all_tests;
 ```
 
@@ -75,7 +75,7 @@ Or run individual phases:
 ```matlab
 cd('D:\Document\code\Matlab\robot-agent');
 addpath('src');
-addpath('tests');
+addpath('tests/phases');
 
 test_phase1_figure;
 test_phase2_filewatch;
@@ -85,10 +85,23 @@ test_phase5_e2e;
 test_phase6_complex;
 ```
 
+Or run obstacle tests:
+
+```matlab
+addpath('src');
+addpath('tests/obstacle');
+
+test_build_robot_tree;
+test_obstacle_visualization;
+test_obstacle_collision;
+test_obstacle_avoidance_move;
+test_obstacle_disabled;
+```
+
 Or run from PowerShell/CMD:
 
 ```powershell
-matlab -batch "cd('D:\Document\code\Matlab\robot-agent\tests'); addpath('../src'); run_all_tests;"
+matlab -batch "cd('D:\Document\code\Matlab\robot-agent\tests\phases'); addpath('../../src'); run_all_tests;"
 ```
 
 ## Project Structure
@@ -98,21 +111,31 @@ robot-agent/
 ├── robotagent.m              # One-click launcher
 ├── src/
 │   ├── Arm7R.m               # 7-DOF kinematics
-│   ├── initRobotFigure.m     # Figure initialization
+│   ├── initRobotFigure.m     # Figure initialization (with obstacle sphere)
 │   ├── updateRobotFigure.m   # Figure efficient update
 │   ├── animateRobot.m        # Animation playback
 │   ├── quinticTrajectory.m   # Quintic polynomial planner
 │   ├── processIncomingCommands.m # File-queue executor
+│   ├── buildRobotTree.m      # Convert Arm7R DH to rigidBodyTree
+│   ├── checkRobotObstacleCollision.m # Robot-to-sphere collision check
+│   ├── planTrajectoryWithObstacle.m  # RRT-based obstacle avoidance
 │   └── computeTrajectory.m   # Legacy trajectory helper
 ├── tests/
-│   ├── run_all_tests.m       # Unified test entry
-│   ├── test_phase1_figure.m
-│   ├── test_phase2_filewatch.m
-│   ├── test_phase3_generator.m
-│   ├── test_phase4_cleanup.m
-│   ├── test_phase5_e2e.m
-│   ├── test_phase6_complex.m
-│   └── output/               # Test screenshots
+│   ├── phases/
+│   │   ├── run_all_tests.m       # Unified test entry
+│   │   ├── test_phase1_figure.m
+│   │   ├── test_phase2_filewatch.m
+│   │   ├── test_phase3_generator.m
+│   │   ├── test_phase4_cleanup.m
+│   │   ├── test_phase5_e2e.m
+│   │   ├── test_phase6_complex.m
+│   │   └── output/               # Test screenshots
+│   └── obstacle/
+│       ├── test_build_robot_tree.m
+│       ├── test_obstacle_visualization.m
+│       ├── test_obstacle_collision.m
+│       ├── test_obstacle_avoidance_move.m
+│       └── test_obstacle_disabled.m
 ├── skills/
 │   └── robotagent-ops/       # Project skill for Kimi CLI
 │       ├── SKILL.md
@@ -125,6 +148,17 @@ robot-agent/
 ```
 
 ## Changelog
+
+### v0.0.6
+- Added obstacle avoidance module (requires Robotics System Toolbox):
+  - Red sphere obstacle visualization in `initRobotFigure.m`
+  - `buildRobotTree.m` converts Arm7R DH parameters to `rigidBodyTree`
+  - `checkRobotObstacleCollision.m` detects robot-to-sphere collisions
+  - `planTrajectoryWithObstacle.m` uses `manipulatorRRT` to plan collision-free paths
+  - Manual obstacle avoidance switch: set `enable_obstacle_avoidance = true;` in `robotagent.m` before running (requires Robotics System Toolbox)
+- Switches `fig.UserData.obstacle_enabled` and `fig.UserData.obstacle_avoidance_enabled`
+- Reorganized `tests/` into `tests/phases/` and `tests/obstacle/`
+- Added obstacle avoidance script template G in skill references
 
 ### v0.0.5
 - Refactored to **AI-direct-code mode**: removed `generate_robot_cmd.m` and `parseNaturalLanguage.m`

@@ -51,6 +51,15 @@ function updateRobotFigure(fig, q)
         end
     end
     
+    % 更新障礙物可見性
+    if isfield(ud, 'h_obstacle') && isvalid(ud.h_obstacle)
+        if isfield(ud, 'obstacle_enabled') && ud.obstacle_enabled
+            set(ud.h_obstacle, 'Visible', 'on');
+        else
+            set(ud.h_obstacle, 'Visible', 'off');
+        end
+    end
+    
     % 更新末端位姿矩陣顯示
     if isfield(ud, 'h_pose_text') && isvalid(ud.h_pose_text)
         pose_str = sprintf(['T = [%8.3f %8.3f %8.3f %10.3f\n' ...

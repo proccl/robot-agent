@@ -17,6 +17,10 @@
 | `[ERR] 无法解析名称 'arm.forwardKinematics'` | `assignin('base', ...)` 把變量注入 base workspace，但 `run()` 在函數工作空間執行腳本 | 改用局部變量：`arm = fig.UserData.arm; current_q = fig.UserData.current_q;` |
 | 修改 `.m` 後需重啟才能生效 | 以為 MATLAB 會緩存函數 | MATLAB 會自動檢測文件修改並重載，通常無需重啟 |
 | 動畫「快進」/瞬間完成 | `animateRobot` 使用 `pause(1/fps)`，在 timer 回調中被 MATLAB 忽略 | 正常現象，功能不受影響；如需真實時間播放需改用 `tic/toc` busy-wait |
+| `[ERR] The goal configuration is in world collision` | 目標點在障礙物內部，RRT 無法規劃無碰撞路徑 | 將目標設在球外（如球表面外 10~50 mm），或關閉避障 |
+| `[PAUSE] Unable to plan obstacle-free path` | RRT 找不到繞行路徑 | 嘗試換一個目標點，或確認 `ud.obstacle.center` 與實際球位置一致 |
+| 機械臂移向錯誤的球位置 | 腳本中硬編碼了障礙物坐標 | 始終使用 `ud.obstacle.center` 動態讀取當前障礙物位置 |
+| 杆子穿過紅球但沒報碰撞 | 當前碰撞幾何是關節點小球近似，非精確圓柱體 | 目前為已知限制；如需精確檢測需後續添加圓柱體碰撞體 |
 
 ---
 
@@ -214,3 +218,74 @@ end
 **已驗證**：
 - 末端 Z→+X 姿態下，繞 Z 軸（YZ 平面）和繞 X 軸（XZ 平面）的 R=100 圓均成功
 - 多段圓軌跡可在同一腳本中連續執行，段間通過 `fig.UserData.current_q` 傳遞位姿
+
+---
+
+### 經驗 14：障礙物位置必須動態讀取，不能硬編碼
+
+**問題**：生成「移向球心」腳本時，把目標位置硬編碼為 `[800; 0; 0]`，但用戶實際把障礙球移到了 `[400; 0; 500]`，導致機械臂移向錯誤位置。
+
+**正確做法**：始終從 `fig.UserData.obstacle.center` 讀取當前障礙物位置：
+```matlab
+T_target(1:3, 4) = ud.obstacle.center;
+```
+
+**教訓**：任何與障礙物相關的目標點、方向向量都應基於 `ud.obstacle.center` 和 `ud.obstacle.radius` 動態計算，不能假設默認值。
+
+---
+
+### 經驗 15：目標點在障礙物內部時 RRT 會報錯
+
+**問題**：用戶要求「移向球心」，但球心位於障礙物內部。`planTrajectoryWithObstacle` 調用 `manipulatorRRT` 後報錯：
+```text
+The goal configuration of the robot is in world collision.
+```
+
+**原因**：避障規劃要求起點和終點都必須是無碰撞狀態。終點在障礙物內部時，不存在無碰撞路徑。
+
+**解決**：
+- 若要測試避障繞行，應將目標設在**球外**，例如球的表面外 10~50 mm
+- 若必須進入球內，需要關閉避障：`fig.UserData.obstacle_avoidance_enabled = false;`
+
+---
+
+### 經驗 16：「向某方向移動 N」要計算單位方向向量
+
+**問題**：用戶說「向球心方向移動 500」，不能直接將當前位置加 `[500; 0; 0]`，而應沿當前位置到球心的方向移動 500 mm。
+
+**正確計算**：
+```matlab
+cur_pos = T_cur(1:3, 4);
+center = ud.obstacle.center;
+direction = center - cur_pos;
+unit_dir = direction / norm(direction);
+T_target(1:3, 4) = cur_pos + 500 * unit_dir;
+```
+
+**教訓**：相對移動若涉及方向，必須先歸一化方向向量，再乘以距離。
+
+---
+
+### 經驗 17：`ver('Robotics System Toolbox')` 在某些電腦上檢測失敗
+
+**問題**：`robotagent.m` 啟動時用 `ver('Robotics System Toolbox')` 檢測工具箱，在部分安裝上返回空，導致避障被錯誤禁用。
+
+**正確檢測方式**：
+```matlab
+v = ver;
+has_robotics_toolbox = any(strcmpi({v.Name}, 'Robotics System Toolbox'));
+```
+
+**教訓**：工具箱檢測應使用 `ver` 返回的結構體數組進行名稱匹配，而非依賴 `ver('Name')`。
+
+---
+
+### 經驗 18：當前碰撞幾何是關節點近似，不保證杆子碰撞
+
+**問題**：用戶問「杆子是否也會和球碰撞」。當前 `buildRobotTree.m` 中為每個非固定 body 添加的是半徑 20 mm 的小球碰撞體，而非圓柱體。
+
+**現狀**：
+- ✅ 可檢測末端/關節點進入障礙物
+- ⚠️ 杆子中間穿過障礙物、兩端關節點都在球外時，可能檢測不到
+
+**後續改進**：如需精確連桿碰撞，需為每根連桿添加 `collisionCylinder`，並正確設置長度、軸向和 pose。
