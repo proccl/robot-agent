@@ -67,6 +67,9 @@ RobotAgent 採用**文件監聽架構**：AI 生成 `.m` 腳本 → 投遞到 `i
 | 帶避障移動 | `走到 300 -300 600 避開障礙物` | `move_to`（當 `obstacle_avoidance_enabled=true` 時使用 `planTrajectoryWithObstacle`） |
 | 移向障礙物中心 | `移向球心` | 使用 `ud.obstacle.center` 作為目標；若目標在球內會 PAUSE |
 | 沿方向移動 | `向球心方向移動 500` | 計算當前位置到球心的單位方向向量，乘以 500 |
+| 右移 | `右移300` | 沿末端 X 軸**負方向**移動 |
+| 前移 | `前移400` | 沿末端 Z 軸**正方向**移動 |
+| 下移 | `下移200` | 沿 world Z 軸**負方向**移動 |
 | 查詢狀態 | `status`、`姿態` | `get_status` |
 
 > 姿態調整指令（如「Z 軸指向 +X」）**不支持自然語言解析**，需由 AI 直接生成自定義腳本。詳見 [pose-adjustment-reference.md](references/pose-adjustment-reference.md)。
@@ -78,6 +81,34 @@ RobotAgent 採用**文件監聽架構**：AI 生成 `.m` 腳本 → 投遞到 `i
 q_traj = quinticTrajectory(current_q, zeros(1,7), 5, 30);
 animateRobot(fig, q_traj, 30);
 fprintf('[Done] home completed.\n');
+```
+
+### 方向移動約定
+```matlab
+T0 = arm.forwardKinematics(current_q);
+p0 = T0(1:3, 4);
+
+% 右移 300（末端 X 軸負方向）
+T1 = T0; T1(1:3,4) = p0 - 300 * T0(1:3,1);
+
+% 前移 400（末端 Z 軸正方向）
+T2 = T0; T2(1:3,4) = p0 + 400 * T0(1:3,3);
+
+% 下移 200（world Z 軸負方向）
+T3 = T0; T3(1:3,4) = p0 + [0; 0; -200];
+```
+
+### 複合運動序列（關節空間，避免笛卡爾奇異）
+```matlab
+% 分段求解 IK + quinticTrajectory，遇到固定姿態不可達時可搜尋 roll 角
+T_target = eye(4);
+T_target(1:3,1:3) = [0 0 1; 1 0 0; 0 1 0];  % Z=+X
+T_target(1:3,4) = p_current + [0; -200; -100];
+[q, err] = arm.inverseKinematics(T_target);
+if err == 0
+    q_traj = quinticTrajectory(current_q, q, 3, 30);
+    animateRobot(fig, q_traj, 30);
+end
 ```
 
 ### 相對移動（笛卡爾空間，保持姿態）
@@ -100,15 +131,18 @@ fprintf('[Done] relative_move completed.\n');
 | `assignin('base', 'arm', ...)` 後腳本找不到 `arm` | `run()` 在函數工作空間執行，改用 `arm = fig.UserData.arm;` |
 | `quinticTrajectory` 傳 `steps` 作為第三參數 | 第三參數是 `T`（總時間秒），`steps` 由函數內部自動計算 |
 | `animateRobot` 傳 `arm` 作為第二參數 | 簽名是 `animateRobot(fig, q_traj, fps)` |
+| 左右方向搞反 | 此機械臂末端 X 軸正方向對應「左」，負方向對應「右」| 右移用 `-T(1:3,1)`，左移用 `+T(1:3,1)` |
+| 固定姿態從某些位置不可達 | theta1=0 固定導致工作空間受限 | 改用關節空間插值，或搜尋繞末端 Z 軸的 roll 角 |
 | 腳本中覆蓋 `fig.UserData` | `initRobotFigure` 存了圖形句柄，啟動腳本只能追加字段，不能整體覆蓋 |
 | 投遞後立即讀取 log 卻找不到對應記錄 | `timer` 最長 0.5s 才觸發，加上動畫 duration，需等待足夠時間再讀取 |
 | 只看 log 文件時間判斷是否為最新指令 | 文件創建時間可能早於內容對應的腳本時間，應以 `[RX] cmd_...` 內容為準 |
 | 避障腳本中硬編碼障礙物位置 | 用戶可能修改了 `robotagent.m` 中的 `obstacle.center` | 始終使用 `ud.obstacle.center` 動態讀取 |
 | 目標點設在障礙物內部 | `manipulatorRRT` 要求起終點都無碰撞 | 將目標設在球外，或臨時關閉避障 |
 | 避障開關沒打開 | `robotagent.m` 中 `enable_obstacle_avoidance` 默認為 `false` | 啟動前改為 `true`，或運行中設置 `fig.UserData.obstacle_avoidance_enabled = true` |
+| 障礙物球看起來像平面圓 | 默認 `surf` 無光照，缺乏立體感 | v0.0.6+ 已內建 `light` + `lighting gouraud` + 地面陰影；舊 Figure 可運行補丁腳本 |
 
 > 完整排查表與 18 條開發經驗見 [troubleshooting-reference.md](references/troubleshooting-reference.md)。
 
 ---
 
-*最後更新：2026年6月13日（新增：避障架構、動態目標、方向移動、RRT 目標在碰撞中、工具箱檢測經驗、碰撞幾何限制）*
+*最後更新：2026年6月17日（新增：方向移動約定、複合序列關節空間規劃、障礙物光照陰影、左右方向修正、固定姿態不可達處理）*

@@ -160,7 +160,7 @@ robot-agent/
 8. 結束時使用 `type` 打印日誌內容
 
 ### 3. 可視化層
-- `initRobotFigure.m`: 創建白色 Figure，繪製連桿、關節、Base/末端坐標軸、障礙物紅球、左上角位姿文字；所有圖形句柄存於 `fig.UserData`
+- `initRobotFigure.m`: 創建白色 Figure，繪製連桿、關節、Base/末端坐標軸、障礙物紅球（含光照、地面陰影）、左上角位姿文字；所有圖形句柄存於 `fig.UserData`
 - `updateRobotFigure.m`: 通過 `set` 更新圖形對象屬性，使用 `drawnow limitrate` 保證效率
 - `animateRobot.m`: 遍歷軌跡並調用 `updateRobotFigure`，默認 30 fps；結束後更新 `fig.UserData.current_q`
 

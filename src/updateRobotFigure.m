@@ -51,12 +51,19 @@ function updateRobotFigure(fig, q)
         end
     end
     
-    % 更新障礙物可見性
+    % 更新障礙物可見性（球體與其陰影同步）
     if isfield(ud, 'h_obstacle') && isvalid(ud.h_obstacle)
         if isfield(ud, 'obstacle_enabled') && ud.obstacle_enabled
             set(ud.h_obstacle, 'Visible', 'on');
         else
             set(ud.h_obstacle, 'Visible', 'off');
+        end
+    end
+    if isfield(ud, 'h_shadow') && isvalid(ud.h_shadow)
+        if isfield(ud, 'obstacle_enabled') && ud.obstacle_enabled
+            set(ud.h_shadow, 'Visible', 'on');
+        else
+            set(ud.h_shadow, 'Visible', 'off');
         end
     end
     

@@ -14,7 +14,7 @@ current_q = zeros(1, 7);
 %   true  : 啟用（需要 Robotics System Toolbox）
 %   false : 禁用（默認）
 enable_obstacle_avoidance = true;
-
+%enable_obstacle_avoidance = false;
 % 障礙物默認配置（可視化開關與避障開關分離）
 obstacle = struct('center', [400; 0; 500], ...
                   'radius', 100, ...

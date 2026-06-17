@@ -149,6 +149,18 @@ robot-agent/
 
 ## Changelog
 
+### v0.0.7
+- Enhanced obstacle sphere visualization:
+  - Added `light` + `lighting gouraud` and material properties to the obstacle sphere
+  - Added semi-transparent ground plane
+  - Added ground projected shadow for the obstacle sphere
+  - Shadow visibility toggles with the obstacle sphere
+- Updated project skill (`skills/robotagent-ops/SKILL.md`) with operational conventions:
+  - Direction conventions: right = -end-effector X, forward = +end-effector Z, down = -world Z
+  - Composite motion sequence templates using joint-space `quinticTrajectory`
+  - Handling of fixed-orientation unreachable poses via joint-space interpolation or roll-angle search
+- Validated a 7-segment composite motion sequence via natural language control
+
 ### v0.0.6
 - Added obstacle avoidance module (requires Robotics System Toolbox):
   - Red sphere obstacle visualization in `initRobotFigure.m`
